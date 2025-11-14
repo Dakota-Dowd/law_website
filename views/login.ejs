@@ -53,7 +53,7 @@
     }
     .form-group{margin-bottom:16px;}
     .form-group label{display:block; margin-bottom:4px; color:var(--gray-800); font-weight:600;}
-    .form-group input{
+    .form-group input, .form-group select{
       width:100%; padding:10px; border:1px solid var(--gray-300); border-radius:6px; font-size:16px;
       box-sizing:border-box;
     }
@@ -135,7 +135,7 @@
     <div class="wrap">
       <div style="text-align:center;">
         <h3 style="color:var(--navy); margin:0 0 10px;">OR</h3>
-        <a class="btn" href="#">Create an Account</a>
+        <button class="btn" id="create-account-btn">Create an Account</button>
       </div>
     </div>
   </section>
@@ -162,6 +162,79 @@
   <script>
     // Set current year in footer
     document.getElementById('yr').textContent = new Date().getFullYear();
+
+    // Toggle between login and register forms
+    const loginFormHTML = `
+      <h2 class="login-title">Client Login</h2>
+      <form action="#" method="post">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <button type="submit" class="btn">Login</button>
+          <a href="#" style="color:var(--gray-600); text-decoration:none;">Forgot Password?</a>
+        </div>
+      </form>
+    `;
+
+    const registerFormHTML = `
+      <h2 class="login-title">Create Account</h2>
+      <form action="#" method="post">
+        <div class="form-group">
+          <label for="first-name">First Name</label>
+          <input type="text" id="first-name" name="first-name" required>
+        </div>
+        <div class="form-group">
+          <label for="last-name">Last Name</label>
+          <input type="text" id="last-name" name="last-name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" name="phone" required>
+        </div>
+        <div class="form-group">
+          <label for="contact-method">Preferred Contact Method</label>
+          <select id="contact-method" name="contact-method" required>
+            <option value="email">Email</option>
+            <option value="phone">Phone</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="reg-username">Username</label>
+          <input type="text" id="reg-username" name="username" required>
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Password</label>
+          <input type="password" id="reg-password" name="password" required>
+        </div>
+        <button type="submit" class="btn">Create Account</button>
+      </form>
+      <div style="text-align:center; margin-top:16px;">
+        <a href="#" id="back-to-login" style="color:var(--gray-600); text-decoration:underline;">Already have an account? Log in</a>
+      </div>
+    `;
+
+    document.getElementById('create-account-btn').addEventListener('click', function() {
+      document.querySelector('.login-container').innerHTML = registerFormHTML;
+      document.querySelector('.or-section').style.display = 'none';
+    });
+
+    // Event delegation for back to login
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'back-to-login') {
+        document.querySelector('.login-container').innerHTML = loginFormHTML;
+        document.querySelector('.or-section').style.display = 'block';
+      }
+    });
   </script>
 </body>
 </html>
