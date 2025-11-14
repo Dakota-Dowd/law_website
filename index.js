@@ -90,11 +90,11 @@ app.use(
 const knex = require("knex")({
     client: "pg",
     connection: {
-        host : process.env.DB_HOST || "localhost",
-        user : process.env.DB_USER || "postgres",
-        password : process.env.DB_PASSWORD || "admin",
-        database : process.env.DB_NAME || "foodisus",
-        port : process.env.DB_PORT || 5432  // PostgreSQL 16 typically uses port 5434
+        host : process.env.DB_HOST || "54.172.11.89",
+        user : process.env.DB_USER || "admin",
+        password : process.env.DB_PASSWORD || "#Team12ForTheWin",
+        database : process.env.DB_NAME || "Law Firm DB",
+        port : process.env.DB_PORT || 3306  // PostgreSQL 16 typically uses port 5434
     }
 });
 
