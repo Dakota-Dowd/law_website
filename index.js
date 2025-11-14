@@ -124,6 +124,32 @@ app.get("/", (req, res) => {
         res.render("index");
 });
 
+app.get("/index", (req, res) => {
+    res.render("index");
+});
+
+// Public informational pages
+app.get("/about", (req, res) => {
+    res.render("about");
+});
+
+app.get("/faq", (req, res) => {
+    res.render("faq");
+});
+
+app.get("/submit", (req, res) => {
+    res.render("submit");
+});
+
+app.get("/review", (req, res) => {
+    res.render("review");
+});
+
+// Render login form
+app.get("/login", (req, res) => {
+    res.render("login", { error_message: "" });
+});
+
 // This creates attributes in the session object to keep track of user and if they logged in
 app.post("/login", (req, res) => {
     let sName = req.body.username;
