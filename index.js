@@ -12,6 +12,7 @@ const express = require("express");
 const session = require("express-session");
 
 let path = require("path");
+const crypto = require("crypto");
 
 // Create a variable that refers to the CLASS (methods being used are classwide, not object specific)
 const multer = require("multer")
@@ -88,15 +89,131 @@ app.use(
 );
 
 const knex = require("knex")({
-    client: "pg",
+    client: "mysql2",
     connection: {
-        host : process.env.DB_HOST || "54.172.11.89",
-        user : process.env.DB_USER || "admin",
-        password : process.env.DB_PASSWORD || "#Team12ForTheWin",
-        database : process.env.DB_NAME || "Law Firm DB",
-        port : process.env.DB_PORT || 3306  // PostgreSQL 16 typically uses port 5434
-    }
+        host: process.env.DB_HOST || "54.172.11.89",
+        user: process.env.DB_USER || "admin",
+        password: process.env.DB_PASSWORD || "#Team12ForTheWin",
+        database: process.env.DB_NAME || "law_firm_db",
+        port: Number(process.env.DB_PORT) || 3306
+    },
+    pool: { min: 0, max: 10 }
 });
+
+/*=======================================
+User Schema Detection
+=======================================*/
+const userSchemaCapabilities = {
+    password_hash: false,
+    password_salt: false,
+    email: false,
+    first_name: false,
+    last_name: false,
+    phone: false
+};
+
+const detectUserSchema = async () => {
+    const columns = Object.keys(userSchemaCapabilities);
+    for (const column of columns) {
+        try {
+            userSchemaCapabilities[column] = await knex.schema.hasColumn("users", column);
+        } catch (err) {
+            userSchemaCapabilities[column] = false;
+        }
+    }
+};
+
+detectUserSchema().catch((err) => {
+    console.error("User schema detection failed:", err.message);
+});
+
+/*=======================================
+Password Hash Helpers
+=======================================*/
+const PASSWORD_ITERATIONS = 250000;
+const PASSWORD_KEY_LENGTH = 64;
+const PASSWORD_DIGEST = "sha512";
+
+const createPasswordRecord = (password) => {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto.pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, PASSWORD_DIGEST).toString("hex");
+    return { salt, hash };
+};
+
+const verifyPassword = (password, salt, hash) => {
+    if (!salt || !hash) {
+        return false;
+    }
+    const hashedAttempt = crypto.pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, PASSWORD_DIGEST).toString("hex");
+    if (hash.length !== hashedAttempt.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(hashedAttempt, "hex"));
+};
+
+const collapsePasswordRecord = ({ salt, hash }) => `${salt}:${hash}`;
+
+const expandPasswordRecord = (storedValue) => {
+    if (!storedValue || !storedValue.includes(":")) {
+        return null;
+    }
+    const [salt, hash] = storedValue.split(":");
+    if (!salt || !hash) {
+        return null;
+    }
+    return { salt, hash };
+};
+
+const userTableSupportsHashColumns = () => userSchemaCapabilities.password_hash && userSchemaCapabilities.password_salt;
+
+/*=======================================
+Public Route Allowlist
+=======================================*/
+const publicPaths = new Set(["/", "/login", "/logout", "/create-login"]);
+
+/*=======================================
+Authentication Utilities
+=======================================*/
+const loadUserColumnsForLogin = () => {
+    const columns = ["id", "username", "password"];
+    if (userTableSupportsHashColumns()) {
+        columns.push("password_hash", "password_salt");
+    }
+    return columns;
+};
+
+const storePasswordRecord = async (userId, record) => {
+    const updates = {
+        password: collapsePasswordRecord(record)
+    };
+    if (userTableSupportsHashColumns()) {
+        updates.password_hash = record.hash;
+        updates.password_salt = record.salt;
+    }
+    await knex("users").where("id", userId).update(updates);
+};
+
+const validateUserPassword = async (user, password) => {
+    if (userTableSupportsHashColumns() && user.password_hash && user.password_salt) {
+        return verifyPassword(password, user.password_salt, user.password_hash);
+    }
+    const expandedRecord = expandPasswordRecord(user.password);
+    if (expandedRecord && verifyPassword(password, expandedRecord.salt, expandedRecord.hash)) {
+        if (userTableSupportsHashColumns() && (!user.password_hash || !user.password_salt)) {
+            await knex("users").where("id", user.id).update({
+                password_hash: expandedRecord.hash,
+                password_salt: expandedRecord.salt
+            });
+        }
+        return true;
+    }
+    if (user.password && user.password === password) {
+        const refreshedRecord = createPasswordRecord(password);
+        await storePasswordRecord(user.id, refreshedRecord);
+        return true;
+    }
+    return false;
+};
 
 // Tells Express how to read form data sent in the body of a request
 app.use(express.urlencoded({extended: true}));
@@ -104,7 +221,7 @@ app.use(express.urlencoded({extended: true}));
 // Global authentication middleware - runs on EVERY request
 app.use((req, res, next) => {
     // Skip authentication for login routes
-    if (req.path === '/' || req.path === '/login' || req.path === '/logout') {
+    if (publicPaths.has(req.path)) {
         //continue with the request path
         return next();
     }
@@ -115,7 +232,7 @@ app.use((req, res, next) => {
         next(); // User is logged in, continue
     } 
     else {
-        res.render("login", { error_message: "Please log in to access this page" });
+        res.render("login", { error_message: "Please log in to access this page", success_message: "", username_value: "" });
     }
 });
 
@@ -145,36 +262,127 @@ app.get("/review", (req, res) => {
     res.render("review");
 });
 
-// Render login form
+/*=======================================
+Authentication Routes
+=======================================*/
 app.get("/login", (req, res) => {
-    res.render("login", { error_message: "" });
+    const successMessage = req.session.successMessage || "";
+    if (req.session.successMessage) {
+        delete req.session.successMessage;
+    }
+    res.render("login", { error_message: "", success_message: successMessage, username_value: "" });
 });
 
-// This creates attributes in the session object to keep track of user and if they logged in
-app.post("/login", (req, res) => {
-    let sName = req.body.username;
-    let sPassword = req.body.password;
+app.post("/login", async (req, res) => {
+    const username = (req.body.username || "").trim();
+    const password = req.body.password || "";
 
-    knex.select("username", "password")
-    .from('users')
-    .where("username", sName)
-    .andWhere("password", sPassword)
-    .then(users => {
-      // Check if a user was found with matching username AND password
-      if (users.length > 0) {
+    if (!username || !password) {
+        return res.render("login", { error_message: "Username and password are required", success_message: "", username_value: username });
+    }
+
+    try {
+        const user = await knex("users")
+            .select(loadUserColumnsForLogin())
+            .where("username", username)
+            .first();
+
+        if (!user) {
+            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+        }
+
+        const authenticated = await validateUserPassword(user, password);
+
+        if (!authenticated) {
+            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+        }
+
         req.session.isLoggedIn = true;
-        req.session.username = sName;
+        req.session.username = user.username;
+        req.session.userId = user.id;
         res.redirect("/");
-      } else {
-        // No matching user found
-        res.render("login", { error_message: "Invalid login" });
-      }
-    })
-    .catch(err => {
-      console.error("Login error:", err);
-      res.render("login", { error_message: "Invalid login" });
-    });
+    } catch (err) {
+        console.error("Login error:", err.message);
+        res.render("login", { error_message: "Login failed. Please try again.", success_message: "", username_value: username });
+    }
+});
 
+app.get("/create-login", (req, res) => {
+    res.render("create-login", {
+        error_message: "",
+        form_values: {
+            first_name: "",
+            last_name: "",
+            email: "",
+            phone: "",
+            username: ""
+        }
+    });
+});
+
+app.post("/create-login", async (req, res) => {
+    const formValues = {
+        first_name: (req.body.first_name || "").trim(),
+        last_name: (req.body.last_name || "").trim(),
+        email: (req.body.email || "").trim(),
+        phone: (req.body.phone || "").trim(),
+        username: (req.body.username || "").trim()
+    };
+    const password = req.body.password || "";
+    const confirmPassword = req.body.confirm_password || "";
+
+    const renderWithError = (message) => {
+        res.render("create-login", { error_message: message, form_values: formValues });
+    };
+
+    if (!formValues.first_name || !formValues.last_name || !formValues.email || !formValues.phone || !formValues.username || !password || !confirmPassword) {
+        return renderWithError("All fields are required.");
+    }
+
+    if (password !== confirmPassword) {
+        return renderWithError("Passwords do not match.");
+    }
+
+    try {
+        const query = knex("users").where("username", formValues.username);
+        if (userSchemaCapabilities.email && formValues.email) {
+            query.orWhere("email", formValues.email);
+        }
+        const existingUser = await query.first();
+        if (existingUser) {
+            return renderWithError("An account with the provided details already exists.");
+        }
+
+        const passwordRecord = createPasswordRecord(password);
+        const newUserRecord = {
+            username: formValues.username,
+            password: collapsePasswordRecord(passwordRecord)
+        };
+
+        if (userTableSupportsHashColumns()) {
+            newUserRecord.password_hash = passwordRecord.hash;
+            newUserRecord.password_salt = passwordRecord.salt;
+        }
+        if (userSchemaCapabilities.email) {
+            newUserRecord.email = formValues.email;
+        }
+        if (userSchemaCapabilities.first_name) {
+            newUserRecord.first_name = formValues.first_name;
+        }
+        if (userSchemaCapabilities.last_name) {
+            newUserRecord.last_name = formValues.last_name;
+        }
+        if (userSchemaCapabilities.phone) {
+            newUserRecord.phone = formValues.phone;
+        }
+
+        await knex("users").insert(newUserRecord);
+        req.session.successMessage = "Account created successfully. Please log in.";
+        res.redirect("/login");
+    } catch (err) {
+        console.error("Create login error:", err.message);
+        renderWithError("Unable to create an account right now. Please try again.");
+    }
 });
 
 // Logout route
@@ -195,7 +403,7 @@ app.get("/test", (req, res) => {
         res.render("test", {name : "BYU"});
     }
     else {
-        res.render("login", { error_message: "" });
+        res.render("login", { error_message: "", success_message: "", username_value: "" });
     }
 });
 
@@ -219,7 +427,7 @@ app.get("/users", (req, res) => {
             });
     }
     else {
-        res.render("login", { error_message: "" });
+        res.render("login", { error_message: "", success_message: "", username_value: "" });
     }
 });
 
