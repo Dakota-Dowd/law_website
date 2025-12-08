@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Case Review — Injury Lawyers of Nevada</title>
+  <style>
+    /*=======================================
+    Classic & Formal Theme (Navy / Gray)
+    =======================================*/
+    :root{
+      --navy:#0c2340;
+      --navy-600:#12325f;
+      --gray-100:#f6f7f9;
+      --gray-300:#d9dde3;
+      --gray-600:#616a76;
+      --gray-800:#2f3540;
+      --gold:#bfa76f;
+      --max:1100px;
+    }
+    html,body{margin:0;padding:0;background:var(--gray-100);color:var(--gray-800);}
+    body{font-family: "Georgia", "Times New Roman", serif; line-height:1.6;}
+
+    /*=======================================
+    Top Bar
+    =======================================*/
+    .topbar{
+      background:var(--navy);
+      color:#fff;
+      border-bottom:4px solid var(--gold);
+    }
+    .wrap{max-width:var(--max); margin:0 auto; padding:0 20px;}
+    .topbar-inner{display:flex; align-items:center; justify-content:space-between; padding:14px 0;}
+    .brand{display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff;}
+    .brand-mark{
+      width:38px;height:38px; border:2px solid #fff; border-radius:6px; display:grid; place-items:center;
+      font-weight:700; letter-spacing:1px;
+    }
+    .brand h1{font-size:20px; margin:0; font-weight:700;}
+    .nav a{
+      color:#e9edf5; text-decoration:none; margin-left:18px; font-size:15px;
+    }
+    .nav a:hover{color:#fff; text-decoration:underline;}
+
+    /*=======================================
+    Review Section
+    =======================================*/
+    .review-section{
+      padding:56px 0;
+      background:#fff;
+    }
+    .review-title{
+      font-size:26px; margin:0 0 10px; color:var(--navy); text-align:center;
+    }
+    .review-subtitle{
+      text-align:center; color:var(--gray-600); margin-bottom:28px; font-style:italic;
+    }
+    .cases-container{
+      max-width:900px; margin:0 auto;
+    }
+    .case-card{
+      background:#fff; border:1px solid var(--gray-300); border-radius:10px;
+      padding:24px; margin-bottom:20px; box-shadow:0 2px 4px rgba(0,0,0,0.05);
+    }
+    .case-header{
+      display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;
+      flex-wrap:wrap; gap:12px;
+    }
+    .case-title{
+      font-size:20px; font-weight:700; color:var(--navy); margin:0;
+    }
+    .case-status{
+      padding:6px 14px; border-radius:999px; font-size:14px; font-weight:600;
+    }
+    .case-status.open{
+      background:#e8f5e9; color:#2e7d32;
+    }
+    .case-status.closed{
+      background:#ffebee; color:#c62828;
+    }
+    .case-meta{
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;
+      margin-bottom:16px; padding:12px 0; border-top:1px solid var(--gray-300);
+      border-bottom:1px solid var(--gray-300);
+    }
+    .case-meta-item{
+      font-size:14px;
+    }
+    .case-meta-label{
+      color:var(--gray-600); font-weight:600; display:block;
+    }
+    .case-meta-value{
+      color:var(--gray-800);
+    }
+    .case-description{
+      color:var(--gray-800); margin-bottom:16px; line-height:1.7;
+    }
+    .btn-respond{
+      display:inline-block; padding:10px 20px; border:2px solid var(--navy); color:#fff;
+      background:var(--navy); text-decoration:none; font-weight:700; border-radius:6px;
+      cursor:pointer; font-size:15px;
+    }
+    .btn-respond:hover{
+      background:var(--navy-600); border-color:var(--navy-600);
+    }
+
+    /*=======================================
+    Footer
+    =======================================*/
+    footer{
+      background:#fff; border-top:1px solid var(--gray-300); color:var(--gray-600);
+      padding:22px 0; font-size:14px;
+    }
+    .footgrid{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;}
+    .footnav a{color:var(--gray-600); text-decoration:none; margin-right:14px;}
+    .footnav a:hover{text-decoration:underline;}
+
+    /*=======================================
+    Responsive
+    =======================================*/
+    @media (max-width: 820px){
+      .case-header{flex-direction:column;}
+      .case-meta{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+
+  <!--=======================================
+  Top Navigation
+  =======================================-->
+  <header class="topbar" role="banner">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="/index">
+        <span class="brand-mark">ILN</span>
+        <h1>Injury Lawyers of Nevada</h1>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/index">Home</a>
+        <a href="/about">About Us</a>
+        <a href="/faq">FAQ</a>
+        <a href="/submit">Submission Page</a>
+        <a href="/review">Lawyer Review Page</a>
+        <a href="/login"><strong>Login</strong></a>
+      </nav>
+    </div>
+  </header>
+
+  <!--=======================================
+  Review Section
+  =======================================-->
+  <section class="review-section">
+    <div class="wrap">
+      <h2 class="review-title">Case Review Dashboard</h2>
+      <p class="review-subtitle">Review and respond to submitted cases</p>
+      
+      <div class="cases-container">
+        <% if (typeof cases !== 'undefined' && cases.length > 0) { %>
+          <% cases.forEach(function(caseItem) { %>
+            <div class="case-card">
+              <div class="case-header">
+                <h3 class="case-title"><%= caseItem.title %></h3>
+                <span class="case-status <%= caseItem.status.toLowerCase() %>">
+                  <%= caseItem.status %>
+                </span>
+              </div>
+              
+              <div class="case-meta">
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Client Name:</span>
+                  <span class="case-meta-value"><%= caseItem.first_name %> <%= caseItem.last_name %></span>
+                </div>
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Practice Area:</span>
+                  <span class="case-meta-value"><%= caseItem.practice_area %></span>
+                </div>
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Submission Date:</span>
+                  <span class="case-meta-value"><%= new Date(caseItem.submission_date).toLocaleDateString() %></span>
+                </div>
+              </div>
+              
+              <div class="case-description">
+                <strong>Description:</strong><br>
+                <%= caseItem.description %>
+              </div>
+              
+              <button class="btn-respond" onclick="respondToCase(<%= caseItem.id %>)">Respond</button>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="case-card">
+            <p style="text-align:center; color:var(--gray-600); margin:0;">
+              No cases available for review at this time.
+            </p>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <!--=======================================
+  Footer
+  =======================================-->
+  <footer role="contentinfo">
+    <div class="wrap footgrid">
+      <div>
+        © <span id="yr"></span> Injury Lawyers of Nevada. All rights reserved.
+        <span style="margin-left:10px">Las Vegas, NV</span>
+      </div>
+      <nav class="footnav" aria-label="Footer">
+        <a href="/index">Home</a>
+        <a href="/about">About Us</a>
+        <a href="/faq">FAQ</a>
+        <a href="/login">Login</a>
+      </nav>
+    </div>
+    <div class="wrap" style="margin-top:10px; color:#8a93a1;">
+      <small><em>*Contingency fee structure varies by case. This website is for informational purposes only and does not constitute legal advice. Viewing this site or contacting us does not create an attorney–client relationship.</em></small>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+    
+    function respondToCase(caseId) {
+      alert('Respond to case #' + caseId + ' - This will be implemented when the database is connected.');
+    }
+  </script>
+</body>
+</html>
