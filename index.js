@@ -169,7 +169,7 @@ const userTableSupportsHashColumns = () => userSchemaCapabilities.password_hash 
 /*=======================================
 Public Route Allowlist
 =======================================*/
-const publicPaths = new Set(["/", "/login", "/logout", "/create-login"]);
+const publicPaths = new Set(["/", "/index", "faq", "about", "/login", "/logout", "/create-login"]);
 
 /*=======================================
 Authentication Utilities
