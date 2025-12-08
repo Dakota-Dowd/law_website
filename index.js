@@ -88,13 +88,13 @@ app.use(
 );
 
 const knex = require("knex")({
-    client: "pg",
+    client: "mysql2",
     connection: {
         host : process.env.DB_HOST || "54.172.11.89",
         user : process.env.DB_USER || "admin",
         password : process.env.DB_PASSWORD || "#Team12ForTheWin",
         database : process.env.DB_NAME || "Law Firm DB",
-        port : process.env.DB_PORT || 3306  // PostgreSQL 16 typically uses port 5434
+        port : process.env.DB_PORT || 3306 // MySQL default port
     }
 });
 
@@ -103,9 +103,14 @@ app.use(express.urlencoded({extended: true}));
 
 // Global authentication middleware - runs on EVERY request
 app.use((req, res, next) => {
-    // Skip authentication for login routes
-    if (req.path === '/' || req.path === '/login' || req.path === '/logout') {
-        //continue with the request path
+    // Skip authentication for public routes
+    if (
+        req.path === '/' ||
+        req.path === '/login' ||
+        req.path === '/logout' ||
+        req.path === '/register' ||
+        (req.path === '/register' && req.method === 'POST')
+    ) {
         return next();
     }
     
@@ -152,32 +157,73 @@ app.get("/login", (req, res) => {
 
 // This creates attributes in the session object to keep track of user and if they logged in
 app.post("/login", (req, res) => {
-    let sName = req.body.username;
-    let sPassword = req.body.password;
+        const email = req.body.email;
+        const password = req.body.password;
 
-    knex.select("username", "password")
-    .from('users')
-    .where("username", sName)
-    .andWhere("password", sPassword)
-    .then(users => {
-      // Check if a user was found with matching username AND password
-      if (users.length > 0) {
-        req.session.isLoggedIn = true;
-        req.session.username = sName;
-        res.redirect("/");
-      } else {
-        // No matching user found
-        res.render("login", { error_message: "Invalid login" });
-      }
-    })
-    .catch(err => {
-      console.error("Login error:", err);
-      res.render("login", { error_message: "Invalid login" });
-    });
+        knex('user_account')
+            .where({ email: email, is_active: true })
+            .first()
+            .then(user => {
+                if (!user) {
+                    return res.render("login", { error_message: "Invalid login" });
+                }
+                // Use bcrypt to compare password
+                const bcrypt = require('bcrypt');
+                bcrypt.compare(password + user.password_salt, user.password_hash, (err, result) => {
+                    if (err || !result) {
+                        return res.render("login", { error_message: "Invalid login" });
+                    }
+                    req.session.isLoggedIn = true;
+                    req.session.user_id = user.user_id;
+                    req.session.email = user.email;
+                    res.redirect("/");
+                });
+            })
+            .catch(err => {
+                console.error("Login error:", err);
+                res.render("login", { error_message: "Invalid login" });
+            });
 
 });
 
 // Logout route
+// Registration form
+app.get("/register", (req, res) => {
+    res.render("create_user", { error_message: "" });
+});
+
+// Registration handler
+app.post("/register", async (req, res) => {
+    const { email, password, first_name, last_name, phone } = req.body;
+    const bcrypt = require('bcrypt');
+    const saltRounds = 10;
+    try {
+        // Check if email already exists
+        const existing = await knex('user_account').where({ email }).first();
+        if (existing) {
+            return res.render("create_user", { error_message: "Email already registered." });
+        }
+        // Generate salt and hash
+        const password_salt = await bcrypt.genSalt(saltRounds);
+        const password_hash = await bcrypt.hash(password + password_salt, saltRounds);
+        // Insert new user
+        await knex('user_account').insert({
+            email,
+            password_hash,
+            password_salt,
+            first_name,
+            last_name,
+            phone,
+            is_active: true,
+            created_on: new Date(),
+            updated_on: new Date()
+        });
+        res.redirect("/login");
+    } catch (err) {
+        console.error("Registration error:", err);
+        res.render("create_user", { error_message: "Registration failed. Please try again." });
+    }
+});
 app.get("/logout", (req, res) => {
     // Get rid of the session object
     req.session.destroy((err) => {

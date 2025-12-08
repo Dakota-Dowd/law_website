@@ -1,0 +1,23 @@
+<h2>Create Account</h2>
+<form action="/register" method="POST">
+    <label for="email">Email:</label>
+    <input type="email" id="email" name="email" required><br>
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" required><br>
+
+    <label for="first_name">First Name:</label>
+    <input type="text" id="first_name" name="first_name" required><br>
+
+    <label for="last_name">Last Name:</label>
+    <input type="text" id="last_name" name="last_name" required><br>
+
+    <label for="phone">Phone:</label>
+    <input type="text" id="phone" name="phone"><br>
+
+    <button type="submit">Create Account</button>
+    <% if (error_message) { %>
+        <p style="color:red"><%= error_message %></p>
+    <% } %>
+</form>
+<p>Already have an account? <a href="/login">Login here</a></p>
