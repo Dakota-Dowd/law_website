@@ -99,7 +99,7 @@ const detectUserSchema = async () => {
     const columns = Object.keys(userSchemaCapabilities);
     for (const column of columns) {
         try {
-            userSchemaCapabilities[column] = await knex.schema.hasColumn("users", column);
+            userSchemaCapabilities[column] = await knex.schema.hasColumn("user_account", column);
         } catch (err) {
             userSchemaCapabilities[column] = false;
         }
@@ -152,48 +152,29 @@ const userTableSupportsHashColumns = () => userSchemaCapabilities.password_hash 
 /*=======================================
 Public Route Allowlist
 =======================================*/
-const publicPaths = new Set(["/", "/index", "/faq", "/about", "/login", "/logout", "/create-login"]);
+const publicPaths = new Set(["/", "/index", "/faq", "/about", "/login", "/logout", "/create-login", "/register"]);
 
 /*=======================================
 Authentication Utilities
 =======================================*/
 const loadUserColumnsForLogin = () => {
-    const columns = ["id", "username", "password"];
-    if (userTableSupportsHashColumns()) {
-        columns.push("password_hash", "password_salt");
-    }
+    // USER_ACCOUNT schema: user_id, email, password_hash, password_salt, first_name, last_name, phone, is_active, created_on, updated_on
+    const columns = ["user_id", "email", "password_hash", "password_salt", "first_name", "last_name", "phone", "is_active", "created_on", "updated_on"];
     return columns;
 };
 
 const storePasswordRecord = async (userId, record) => {
+    // Only update password_hash and password_salt
     const updates = {
-        password: collapsePasswordRecord(record)
+        password_hash: record.hash,
+        password_salt: record.salt
     };
-    if (userTableSupportsHashColumns()) {
-        updates.password_hash = record.hash;
-        updates.password_salt = record.salt;
-    }
-    await knex("users").where("id", userId).update(updates);
+    await knex("user_account").where("user_id", userId).update(updates);
 };
 
 const validateUserPassword = async (user, password) => {
     if (userTableSupportsHashColumns() && user.password_hash && user.password_salt) {
         return verifyPassword(password, user.password_salt, user.password_hash);
-    }
-    const expandedRecord = expandPasswordRecord(user.password);
-    if (expandedRecord && verifyPassword(password, expandedRecord.salt, expandedRecord.hash)) {
-        if (userTableSupportsHashColumns() && (!user.password_hash || !user.password_salt)) {
-            await knex("users").where("id", user.id).update({
-                password_hash: expandedRecord.hash,
-                password_salt: expandedRecord.salt
-            });
-        }
-        return true;
-    }
-    if (user.password && user.password === password) {
-        const refreshedRecord = createPasswordRecord(password);
-        await storePasswordRecord(user.id, refreshedRecord);
-        return true;
     }
     return false;
 };
@@ -263,9 +244,9 @@ app.post("/login", async (req, res) => {
     }
 
     try {
-        const user = await knex("users")
+        const user = await knex("user_account")
             .select(loadUserColumnsForLogin())
-            .where("username", username)
+            .where("email", username)
             .first();
 
         if (!user) {
@@ -325,39 +306,26 @@ app.post("/create-login", async (req, res) => {
     }
 
     try {
-        const query = knex("users").where("username", formValues.username);
-        if (userSchemaCapabilities.email && formValues.email) {
-            query.orWhere("email", formValues.email);
-        }
-        const existingUser = await query.first();
+        // Only check by email for user_account
+        const existingUser = await knex("user_account").where("email", formValues.email).first();
         if (existingUser) {
-            return renderWithError("An account with the provided details already exists.");
+            return renderWithError("An account with the provided email already exists.");
         }
 
         const passwordRecord = createPasswordRecord(password);
         const newUserRecord = {
-            username: formValues.username,
-            password: collapsePasswordRecord(passwordRecord)
+            email: formValues.email,
+            password_hash: passwordRecord.hash,
+            password_salt: passwordRecord.salt,
+            first_name: formValues.first_name,
+            last_name: formValues.last_name,
+            phone: formValues.phone,
+            is_active: true,
+            created_on: new Date(),
+            updated_on: new Date()
         };
 
-        if (userTableSupportsHashColumns()) {
-            newUserRecord.password_hash = passwordRecord.hash;
-            newUserRecord.password_salt = passwordRecord.salt;
-        }
-        if (userSchemaCapabilities.email) {
-            newUserRecord.email = formValues.email;
-        }
-        if (userSchemaCapabilities.first_name) {
-            newUserRecord.first_name = formValues.first_name;
-        }
-        if (userSchemaCapabilities.last_name) {
-            newUserRecord.last_name = formValues.last_name;
-        }
-        if (userSchemaCapabilities.phone) {
-            newUserRecord.phone = formValues.phone;
-        }
-
-        await knex("users").insert(newUserRecord);
+        await knex("user_account").insert(newUserRecord);
         req.session.successMessage = "Account created successfully. Please log in.";
         res.redirect("/login");
     } catch (err) {
@@ -387,16 +355,15 @@ app.post("/register", async (req, res) => {
     const { email, password, first_name, last_name, phone } = req.body;
     try {
         // Check if email already exists
-        const existing = await knex('users').where({ email }).first();
+        const existing = await knex('user_account').where({ email }).first();
         if (existing) {
             return res.render("create_user", { error_message: "Email already registered." });
         }
         // Generate password record
         const passwordRecord = createPasswordRecord(password);
-        // Insert new user
-        await knex('users').insert({
+        // Insert new user (no password field)
+        await knex('user_account').insert({
             email,
-            password: collapsePasswordRecord(passwordRecord),
             password_hash: passwordRecord.hash,
             password_salt: passwordRecord.salt,
             first_name,
@@ -429,7 +396,7 @@ app.get("/users", (req, res) => {
     // Check if user is logged in
     if (req.session.isLoggedIn) {
         // run the query
-        knex.select().from("users")
+        knex.select().from("user_account")
             // then send ___ what? to the users
             .then(users => {
                 console.log(`Successfully retrieved ${users.length} users from database`);
@@ -439,7 +406,7 @@ app.get("/users", (req, res) => {
                 console.error("Database query error:", err.message);
                 res.render("displayUsers", {
                     users: [],
-                    error_message: `Database error: ${err.message}. Please check if the 'users' table exists.`
+                    error_message: `Database error: ${err.message}. Please check if the 'user_account' table exists.`
                 });
             });
     }
@@ -449,7 +416,7 @@ app.get("/users", (req, res) => {
 });
 
 app.post("/deleteUser/:id", (req, res) => {
-    knex("users").where("id", req.params.id).del().then(users => {
+    knex("user_account").where("user_id", req.params.id).del().then(users => {
         res.redirect("/users");
     }).catch(err => {
         console.log(err);
