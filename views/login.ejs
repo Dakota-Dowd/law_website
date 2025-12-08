@@ -135,7 +135,7 @@
     <div class="wrap">
       <div style="text-align:center;">
         <h3 style="color:var(--navy); margin:0 0 10px;">OR</h3>
-        <button class="btn" id="create-account-btn">Create an Account</button>
+        <a href="/register" class="btn">Create an Account</a>
       </div>
     </div>
   </section>
@@ -182,59 +182,8 @@
       </form>
     `;
 
-    const registerFormHTML = `
-      <h2 class="login-title">Create Account</h2>
-      <form action="#" method="post">
-        <div class="form-group">
-          <label for="first-name">First Name</label>
-          <input type="text" id="first-name" name="first-name" required>
-        </div>
-        <div class="form-group">
-          <label for="last-name">Last Name</label>
-          <input type="text" id="last-name" name="last-name" required>
-        </div>
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-          <label for="phone">Phone Number</label>
-          <input type="tel" id="phone" name="phone" required>
-        </div>
-        <div class="form-group">
-          <label for="contact-method">Preferred Contact Method</label>
-          <select id="contact-method" name="contact-method" required>
-            <option value="email">Email</option>
-            <option value="phone">Phone</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="reg-username">Username</label>
-          <input type="text" id="reg-username" name="username" required>
-        </div>
-        <div class="form-group">
-          <label for="reg-password">Password</label>
-          <input type="password" id="reg-password" name="password" required>
-        </div>
-        <button type="submit" class="btn">Create Account</button>
-      </form>
-      <div style="text-align:center; margin-top:16px;">
-        <a href="#" id="back-to-login" style="color:var(--gray-600); text-decoration:underline;">Already have an account? Log in</a>
-      </div>
-    `;
 
-    document.getElementById('create-account-btn').addEventListener('click', function() {
-      document.querySelector('.login-container').innerHTML = registerFormHTML;
-      document.querySelector('.or-section').style.display = 'none';
-    });
-
-    // Event delegation for back to login
-    document.addEventListener('click', function(e) {
-      if (e.target && e.target.id === 'back-to-login') {
-        document.querySelector('.login-container').innerHTML = loginFormHTML;
-        document.querySelector('.or-section').style.display = 'block';
-      }
-    });
+    // Removed JS form toggling, now uses /register page for account creation
   </script>
 </body>
 </html>

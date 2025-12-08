@@ -1,22 +1,13 @@
-//npm install dotenv - explain
-//npm install express-session - explain
-//create the .env file
-
 // Load environment variables from .env file into memory
-// Allows you to use process.env
 require('dotenv').config();
 
 const express = require("express");
-
-//Needed for the session variable - Stored on the server to hold data
+// Needed for the session variable - Stored on the server to hold data
 const session = require("express-session");
-
 let path = require("path");
 const crypto = require("crypto");
-
 // Create a variable that refers to the CLASS (methods being used are classwide, not object specific)
 const multer = require("multer")
-
 // Allows you to read the body of incoming HTTP requests and makes that data available on req.body
 let bodyParser = require("body-parser");
 
@@ -29,16 +20,8 @@ app.set("view engine", "ejs");
 const uploadRoot = path.join(__dirname, "images");
 // Sub-directory where uploaded profile pictures will be stored
 const uploadDir = path.join(uploadRoot, "uploads");
-// cb is the callback function
-// The callback is how you hand control back to Multer after
-// your customization step
-// Configure Multer's disk storage engine
-// Multer calls it once per upload to ask where to store the file. Your function receives:
-// req: the incoming request.
-// file: metadata about the file (original name, mimetype, etc.).
-// cb: the callback.
 
-// WHAT we are storing and WHERE we are storing it
+// Configure Multer's disk storage engine
 const storage = multer.diskStorage({
     // Save files into our uploads directory
     destination: (req, file, cb) => {
@@ -81,9 +64,9 @@ saveUninitialized - Default: true
 app.use(
     session(
         {
-    secret: process.env.SESSION_SECRET || 'fallback-secret-key',
-    resave: false,
-    saveUninitialized: false,
+            secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+            resave: false,
+            saveUninitialized: false,
         }
     )
 );
@@ -116,7 +99,7 @@ const detectUserSchema = async () => {
     const columns = Object.keys(userSchemaCapabilities);
     for (const column of columns) {
         try {
-            userSchemaCapabilities[column] = await knex.schema.hasColumn("users", column);
+            userSchemaCapabilities[column] = await knex.schema.hasColumn("user_account", column);
         } catch (err) {
             userSchemaCapabilities[column] = false;
         }
@@ -169,48 +152,29 @@ const userTableSupportsHashColumns = () => userSchemaCapabilities.password_hash 
 /*=======================================
 Public Route Allowlist
 =======================================*/
-const publicPaths = new Set(["/", "/index", "/faq", "/about", "/login", "/logout", "/create-login"]);
+const publicPaths = new Set(["/", "/index", "/faq", "/about", "/login", "/logout", "/create-login", "/register"]);
 
 /*=======================================
 Authentication Utilities
 =======================================*/
 const loadUserColumnsForLogin = () => {
-    const columns = ["id", "username", "password"];
-    if (userTableSupportsHashColumns()) {
-        columns.push("password_hash", "password_salt");
-    }
+    // USER_ACCOUNT schema: user_id, email, password_hash, password_salt, first_name, last_name, phone, is_active, created_on, updated_on
+    const columns = ["user_id", "email", "password_hash", "password_salt", "first_name", "last_name", "phone", "is_active", "created_on", "updated_on"];
     return columns;
 };
 
 const storePasswordRecord = async (userId, record) => {
+    // Only update password_hash and password_salt
     const updates = {
-        password: collapsePasswordRecord(record)
+        password_hash: record.hash,
+        password_salt: record.salt
     };
-    if (userTableSupportsHashColumns()) {
-        updates.password_hash = record.hash;
-        updates.password_salt = record.salt;
-    }
-    await knex("users").where("id", userId).update(updates);
+    await knex("user_account").where("user_id", userId).update(updates);
 };
 
 const validateUserPassword = async (user, password) => {
     if (userTableSupportsHashColumns() && user.password_hash && user.password_salt) {
         return verifyPassword(password, user.password_salt, user.password_hash);
-    }
-    const expandedRecord = expandPasswordRecord(user.password);
-    if (expandedRecord && verifyPassword(password, expandedRecord.salt, expandedRecord.hash)) {
-        if (userTableSupportsHashColumns() && (!user.password_hash || !user.password_salt)) {
-            await knex("users").where("id", user.id).update({
-                password_hash: expandedRecord.hash,
-                password_salt: expandedRecord.salt
-            });
-        }
-        return true;
-    }
-    if (user.password && user.password === password) {
-        const refreshedRecord = createPasswordRecord(password);
-        await storePasswordRecord(user.id, refreshedRecord);
-        return true;
     }
     return false;
 };
@@ -225,10 +189,8 @@ app.use((req, res, next) => {
         //continue with the request path
         return next();
     }
-    
     // Check if user is logged in for all other routes
     if (req.session.isLoggedIn) {
-        //notice no return because nothing below it
         next(); // User is logged in, continue
     } 
     else {
@@ -238,7 +200,7 @@ app.use((req, res, next) => {
 
 // Main page route - notice it checks if they have logged in
 app.get("/", (req, res) => {       
-        res.render("index");
+    res.render("index");
 });
 
 app.get("/index", (req, res) => {
@@ -282,9 +244,9 @@ app.post("/login", async (req, res) => {
     }
 
     try {
-        const user = await knex("users")
+        const user = await knex("user_account")
             .select(loadUserColumnsForLogin())
-            .where("username", username)
+            .where("email", username)
             .first();
 
         if (!user) {
@@ -344,39 +306,26 @@ app.post("/create-login", async (req, res) => {
     }
 
     try {
-        const query = knex("users").where("username", formValues.username);
-        if (userSchemaCapabilities.email && formValues.email) {
-            query.orWhere("email", formValues.email);
-        }
-        const existingUser = await query.first();
+        // Only check by email for user_account
+        const existingUser = await knex("user_account").where("email", formValues.email).first();
         if (existingUser) {
-            return renderWithError("An account with the provided details already exists.");
+            return renderWithError("An account with the provided email already exists.");
         }
 
         const passwordRecord = createPasswordRecord(password);
         const newUserRecord = {
-            username: formValues.username,
-            password: collapsePasswordRecord(passwordRecord)
+            email: formValues.email,
+            password_hash: passwordRecord.hash,
+            password_salt: passwordRecord.salt,
+            first_name: formValues.first_name,
+            last_name: formValues.last_name,
+            phone: formValues.phone,
+            is_active: true,
+            created_on: new Date(),
+            updated_on: new Date()
         };
 
-        if (userTableSupportsHashColumns()) {
-            newUserRecord.password_hash = passwordRecord.hash;
-            newUserRecord.password_salt = passwordRecord.salt;
-        }
-        if (userSchemaCapabilities.email) {
-            newUserRecord.email = formValues.email;
-        }
-        if (userSchemaCapabilities.first_name) {
-            newUserRecord.first_name = formValues.first_name;
-        }
-        if (userSchemaCapabilities.last_name) {
-            newUserRecord.last_name = formValues.last_name;
-        }
-        if (userSchemaCapabilities.phone) {
-            newUserRecord.phone = formValues.phone;
-        }
-
-        await knex("users").insert(newUserRecord);
+        await knex("user_account").insert(newUserRecord);
         req.session.successMessage = "Account created successfully. Please log in.";
         res.redirect("/login");
     } catch (err) {
@@ -396,6 +345,41 @@ app.get("/logout", (req, res) => {
     });
 });
 
+// Registration form
+app.get("/register", (req, res) => {
+    res.render("create_user", { error_message: "" });
+});
+
+// Registration handler
+app.post("/register", async (req, res) => {
+    const { email, password, first_name, last_name, phone } = req.body;
+    try {
+        // Check if email already exists
+        const existing = await knex('user_account').where({ email }).first();
+        if (existing) {
+            return res.render("create_user", { error_message: "Email already registered." });
+        }
+        // Generate password record
+        const passwordRecord = createPasswordRecord(password);
+        // Insert new user (no password field)
+        await knex('user_account').insert({
+            email,
+            password_hash: passwordRecord.hash,
+            password_salt: passwordRecord.salt,
+            first_name,
+            last_name,
+            phone,
+            is_active: true,
+            created_on: new Date(),
+            updated_on: new Date()
+        });
+        res.redirect("/login");
+    } catch (err) {
+        console.error("Registration error:", err);
+        res.render("create_user", { error_message: "Registration failed. Please try again." });
+    }
+});
+
 // If the user is logged in when they enter the test page, return BYU
 app.get("/test", (req, res) => {
     // Check if user is logged in
@@ -412,7 +396,7 @@ app.get("/users", (req, res) => {
     // Check if user is logged in
     if (req.session.isLoggedIn) {
         // run the query
-        knex.select().from("users")
+        knex.select().from("user_account")
             // then send ___ what? to the users
             .then(users => {
                 console.log(`Successfully retrieved ${users.length} users from database`);
@@ -422,7 +406,7 @@ app.get("/users", (req, res) => {
                 console.error("Database query error:", err.message);
                 res.render("displayUsers", {
                     users: [],
-                    error_message: `Database error: ${err.message}. Please check if the 'users' table exists.`
+                    error_message: `Database error: ${err.message}. Please check if the 'user_account' table exists.`
                 });
             });
     }
@@ -432,7 +416,7 @@ app.get("/users", (req, res) => {
 });
 
 app.post("/deleteUser/:id", (req, res) => {
-    knex("users").where("id", req.params.id).del().then(users => {
+    knex("user_account").where("user_id", req.params.id).del().then(users => {
         res.redirect("/users");
     }).catch(err => {
         console.log(err);
