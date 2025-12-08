@@ -1,21 +1,13 @@
-//npm install dotenv - explain
-//npm install express-session - explain
-//create the .env file
-
 // Load environment variables from .env file into memory
-// Allows you to use process.env
 require('dotenv').config();
 
 const express = require("express");
-
-//Needed for the session variable - Stored on the server to hold data
+// Needed for the session variable - Stored on the server to hold data
 const session = require("express-session");
-
 let path = require("path");
-
+const crypto = require("crypto");
 // Create a variable that refers to the CLASS (methods being used are classwide, not object specific)
 const multer = require("multer")
-
 // Allows you to read the body of incoming HTTP requests and makes that data available on req.body
 let bodyParser = require("body-parser");
 
@@ -28,16 +20,8 @@ app.set("view engine", "ejs");
 const uploadRoot = path.join(__dirname, "images");
 // Sub-directory where uploaded profile pictures will be stored
 const uploadDir = path.join(uploadRoot, "uploads");
-// cb is the callback function
-// The callback is how you hand control back to Multer after
-// your customization step
-// Configure Multer's disk storage engine
-// Multer calls it once per upload to ask where to store the file. Your function receives:
-// req: the incoming request.
-// file: metadata about the file (original name, mimetype, etc.).
-// cb: the callback.
 
-// WHAT we are storing and WHERE we are storing it
+// Configure Multer's disk storage engine
 const storage = multer.diskStorage({
     // Save files into our uploads directory
     destination: (req, file, cb) => {
@@ -80,9 +64,9 @@ saveUninitialized - Default: true
 app.use(
     session(
         {
-    secret: process.env.SESSION_SECRET || 'fallback-secret-key',
-    resave: false,
-    saveUninitialized: false,
+            secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+            resave: false,
+            saveUninitialized: false,
         }
     )
 );
@@ -90,43 +74,152 @@ app.use(
 const knex = require("knex")({
     client: "mysql2",
     connection: {
-        host : process.env.DB_HOST || "54.172.11.89",
-        user : process.env.DB_USER || "admin",
-        password : process.env.DB_PASSWORD || "#Team12ForTheWin",
-        database : process.env.DB_NAME || "Law Firm DB",
-        port : process.env.DB_PORT || 3306 // MySQL default port
-    }
+        host: process.env.DB_HOST || "54.172.11.89",
+        user: process.env.DB_USER || "admin",
+        password: process.env.DB_PASSWORD || "#Team12ForTheWin",
+        database: process.env.DB_NAME || "law_firm_db",
+        port: Number(process.env.DB_PORT) || 3306
+    },
+    pool: { min: 0, max: 10 }
 });
+
+/*=======================================
+User Schema Detection
+=======================================*/
+const userSchemaCapabilities = {
+    password_hash: false,
+    password_salt: false,
+    email: false,
+    first_name: false,
+    last_name: false,
+    phone: false
+};
+
+const detectUserSchema = async () => {
+    const columns = Object.keys(userSchemaCapabilities);
+    for (const column of columns) {
+        try {
+            userSchemaCapabilities[column] = await knex.schema.hasColumn("users", column);
+        } catch (err) {
+            userSchemaCapabilities[column] = false;
+        }
+    }
+};
+
+detectUserSchema().catch((err) => {
+    console.error("User schema detection failed:", err.message);
+});
+
+/*=======================================
+Password Hash Helpers
+=======================================*/
+const PASSWORD_ITERATIONS = 250000;
+const PASSWORD_KEY_LENGTH = 64;
+const PASSWORD_DIGEST = "sha512";
+
+const createPasswordRecord = (password) => {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto.pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, PASSWORD_DIGEST).toString("hex");
+    return { salt, hash };
+};
+
+const verifyPassword = (password, salt, hash) => {
+    if (!salt || !hash) {
+        return false;
+    }
+    const hashedAttempt = crypto.pbkdf2Sync(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_LENGTH, PASSWORD_DIGEST).toString("hex");
+    if (hash.length !== hashedAttempt.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(hashedAttempt, "hex"));
+};
+
+const collapsePasswordRecord = ({ salt, hash }) => `${salt}:${hash}`;
+
+const expandPasswordRecord = (storedValue) => {
+    if (!storedValue || !storedValue.includes(":")) {
+        return null;
+    }
+    const [salt, hash] = storedValue.split(":");
+    if (!salt || !hash) {
+        return null;
+    }
+    return { salt, hash };
+};
+
+const userTableSupportsHashColumns = () => userSchemaCapabilities.password_hash && userSchemaCapabilities.password_salt;
+
+/*=======================================
+Public Route Allowlist
+=======================================*/
+const publicPaths = new Set(["/", "/index", "/faq", "/about", "/login", "/logout", "/create-login"]);
+
+/*=======================================
+Authentication Utilities
+=======================================*/
+const loadUserColumnsForLogin = () => {
+    const columns = ["id", "username", "password"];
+    if (userTableSupportsHashColumns()) {
+        columns.push("password_hash", "password_salt");
+    }
+    return columns;
+};
+
+const storePasswordRecord = async (userId, record) => {
+    const updates = {
+        password: collapsePasswordRecord(record)
+    };
+    if (userTableSupportsHashColumns()) {
+        updates.password_hash = record.hash;
+        updates.password_salt = record.salt;
+    }
+    await knex("users").where("id", userId).update(updates);
+};
+
+const validateUserPassword = async (user, password) => {
+    if (userTableSupportsHashColumns() && user.password_hash && user.password_salt) {
+        return verifyPassword(password, user.password_salt, user.password_hash);
+    }
+    const expandedRecord = expandPasswordRecord(user.password);
+    if (expandedRecord && verifyPassword(password, expandedRecord.salt, expandedRecord.hash)) {
+        if (userTableSupportsHashColumns() && (!user.password_hash || !user.password_salt)) {
+            await knex("users").where("id", user.id).update({
+                password_hash: expandedRecord.hash,
+                password_salt: expandedRecord.salt
+            });
+        }
+        return true;
+    }
+    if (user.password && user.password === password) {
+        const refreshedRecord = createPasswordRecord(password);
+        await storePasswordRecord(user.id, refreshedRecord);
+        return true;
+    }
+    return false;
+};
 
 // Tells Express how to read form data sent in the body of a request
 app.use(express.urlencoded({extended: true}));
 
 // Global authentication middleware - runs on EVERY request
 app.use((req, res, next) => {
-    // Skip authentication for public routes
-    if (
-        req.path === '/' ||
-        req.path === '/login' ||
-        req.path === '/logout' ||
-        req.path === '/register' ||
-        (req.path === '/register' && req.method === 'POST')
-    ) {
+    // Skip authentication for login routes
+    if (publicPaths.has(req.path)) {
+        //continue with the request path
         return next();
     }
-    
     // Check if user is logged in for all other routes
     if (req.session.isLoggedIn) {
-        //notice no return because nothing below it
         next(); // User is logged in, continue
     } 
     else {
-        res.render("login", { error_message: "Please log in to access this page" });
+        res.render("login", { error_message: "Please log in to access this page", success_message: "", username_value: "" });
     }
 });
 
 // Main page route - notice it checks if they have logged in
 app.get("/", (req, res) => {       
-        res.render("index");
+    res.render("index");
 });
 
 app.get("/index", (req, res) => {
@@ -150,43 +243,140 @@ app.get("/review", (req, res) => {
     res.render("review");
 });
 
-// Render login form
+/*=======================================
+Authentication Routes
+=======================================*/
 app.get("/login", (req, res) => {
-    res.render("login", { error_message: "" });
+    const successMessage = req.session.successMessage || "";
+    if (req.session.successMessage) {
+        delete req.session.successMessage;
+    }
+    res.render("login", { error_message: "", success_message: successMessage, username_value: "" });
 });
 
-// This creates attributes in the session object to keep track of user and if they logged in
-app.post("/login", (req, res) => {
-        const email = req.body.email;
-        const password = req.body.password;
+app.post("/login", async (req, res) => {
+    const username = (req.body.username || "").trim();
+    const password = req.body.password || "";
 
-        knex('user_account')
-            .where({ email: email, is_active: true })
-            .first()
-            .then(user => {
-                if (!user) {
-                    return res.render("login", { error_message: "Invalid login" });
-                }
-                // Use bcrypt to compare password
-                const bcrypt = require('bcrypt');
-                bcrypt.compare(password + user.password_salt, user.password_hash, (err, result) => {
-                    if (err || !result) {
-                        return res.render("login", { error_message: "Invalid login" });
-                    }
-                    req.session.isLoggedIn = true;
-                    req.session.user_id = user.user_id;
-                    req.session.email = user.email;
-                    res.redirect("/");
-                });
-            })
-            .catch(err => {
-                console.error("Login error:", err);
-                res.render("login", { error_message: "Invalid login" });
-            });
+    if (!username || !password) {
+        return res.render("login", { error_message: "Username and password are required", success_message: "", username_value: username });
+    }
 
+    try {
+        const user = await knex("users")
+            .select(loadUserColumnsForLogin())
+            .where("username", username)
+            .first();
+
+        if (!user) {
+            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+        }
+
+        const authenticated = await validateUserPassword(user, password);
+
+        if (!authenticated) {
+            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+        }
+
+        req.session.isLoggedIn = true;
+        req.session.username = user.username;
+        req.session.userId = user.id;
+        res.redirect("/");
+    } catch (err) {
+        console.error("Login error:", err.message);
+        res.render("login", { error_message: "Login failed. Please try again.", success_message: "", username_value: username });
+    }
+});
+
+app.get("/create-login", (req, res) => {
+    res.render("create-login", {
+        error_message: "",
+        form_values: {
+            first_name: "",
+            last_name: "",
+            email: "",
+            phone: "",
+            username: ""
+        }
+    });
+});
+
+app.post("/create-login", async (req, res) => {
+    const formValues = {
+        first_name: (req.body.first_name || "").trim(),
+        last_name: (req.body.last_name || "").trim(),
+        email: (req.body.email || "").trim(),
+        phone: (req.body.phone || "").trim(),
+        username: (req.body.username || "").trim()
+    };
+    const password = req.body.password || "";
+    const confirmPassword = req.body.confirm_password || "";
+
+    const renderWithError = (message) => {
+        res.render("create-login", { error_message: message, form_values: formValues });
+    };
+
+    if (!formValues.first_name || !formValues.last_name || !formValues.email || !formValues.phone || !formValues.username || !password || !confirmPassword) {
+        return renderWithError("All fields are required.");
+    }
+
+    if (password !== confirmPassword) {
+        return renderWithError("Passwords do not match.");
+    }
+
+    try {
+        const query = knex("users").where("username", formValues.username);
+        if (userSchemaCapabilities.email && formValues.email) {
+            query.orWhere("email", formValues.email);
+        }
+        const existingUser = await query.first();
+        if (existingUser) {
+            return renderWithError("An account with the provided details already exists.");
+        }
+
+        const passwordRecord = createPasswordRecord(password);
+        const newUserRecord = {
+            username: formValues.username,
+            password: collapsePasswordRecord(passwordRecord)
+        };
+
+        if (userTableSupportsHashColumns()) {
+            newUserRecord.password_hash = passwordRecord.hash;
+            newUserRecord.password_salt = passwordRecord.salt;
+        }
+        if (userSchemaCapabilities.email) {
+            newUserRecord.email = formValues.email;
+        }
+        if (userSchemaCapabilities.first_name) {
+            newUserRecord.first_name = formValues.first_name;
+        }
+        if (userSchemaCapabilities.last_name) {
+            newUserRecord.last_name = formValues.last_name;
+        }
+        if (userSchemaCapabilities.phone) {
+            newUserRecord.phone = formValues.phone;
+        }
+
+        await knex("users").insert(newUserRecord);
+        req.session.successMessage = "Account created successfully. Please log in.";
+        res.redirect("/login");
+    } catch (err) {
+        console.error("Create login error:", err.message);
+        renderWithError("Unable to create an account right now. Please try again.");
+    }
 });
 
 // Logout route
+app.get("/logout", (req, res) => {
+    // Get rid of the session object
+    req.session.destroy((err) => {
+        if (err) {
+            console.log(err);
+        }
+        res.redirect("/");
+    });
+});
+
 // Registration form
 app.get("/register", (req, res) => {
     res.render("create_user", { error_message: "" });
@@ -195,22 +385,20 @@ app.get("/register", (req, res) => {
 // Registration handler
 app.post("/register", async (req, res) => {
     const { email, password, first_name, last_name, phone } = req.body;
-    const bcrypt = require('bcrypt');
-    const saltRounds = 10;
     try {
         // Check if email already exists
-        const existing = await knex('user_account').where({ email }).first();
+        const existing = await knex('users').where({ email }).first();
         if (existing) {
             return res.render("create_user", { error_message: "Email already registered." });
         }
-        // Generate salt and hash
-        const password_salt = await bcrypt.genSalt(saltRounds);
-        const password_hash = await bcrypt.hash(password + password_salt, saltRounds);
+        // Generate password record
+        const passwordRecord = createPasswordRecord(password);
         // Insert new user
-        await knex('user_account').insert({
+        await knex('users').insert({
             email,
-            password_hash,
-            password_salt,
+            password: collapsePasswordRecord(passwordRecord),
+            password_hash: passwordRecord.hash,
+            password_salt: passwordRecord.salt,
             first_name,
             last_name,
             phone,
@@ -224,15 +412,6 @@ app.post("/register", async (req, res) => {
         res.render("create_user", { error_message: "Registration failed. Please try again." });
     }
 });
-app.get("/logout", (req, res) => {
-    // Get rid of the session object
-    req.session.destroy((err) => {
-        if (err) {
-            console.log(err);
-        }
-        res.redirect("/");
-    });
-});
 
 // If the user is logged in when they enter the test page, return BYU
 app.get("/test", (req, res) => {
@@ -241,7 +420,7 @@ app.get("/test", (req, res) => {
         res.render("test", {name : "BYU"});
     }
     else {
-        res.render("login", { error_message: "" });
+        res.render("login", { error_message: "", success_message: "", username_value: "" });
     }
 });
 
@@ -265,7 +444,7 @@ app.get("/users", (req, res) => {
             });
     }
     else {
-        res.render("login", { error_message: "" });
+        res.render("login", { error_message: "", success_message: "", username_value: "" });
     }
 });
 
