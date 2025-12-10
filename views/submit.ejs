@@ -128,29 +128,51 @@
       <div class="submit-container">
         <h2 class="submit-title">Submit Your Case</h2>
         <p class="submit-subtitle">We'll review your case and get back to you shortly.</p>
+        
+        <% if (typeof success_message !== 'undefined' && success_message) { %>
+          <div style="background:#e8f5e9; color:#2e7d32; padding:12px; border-radius:6px; margin-bottom:20px; border:1px solid #a5d6a7;">
+            <%= success_message %>
+          </div>
+        <% } %>
+        
+        <% if (typeof error_message !== 'undefined' && error_message) { %>
+          <div style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:20px; border:1px solid #ef9a9a;">
+            <%= error_message %>
+          </div>
+        <% } %>
+        
         <form action="/submit" method="post">
           <div class="form-group">
             <label for="title">Case Title</label>
-            <input type="text" id="title" name="title" required>
+            <input type="text" id="title" name="title" value="<%= typeof form_values !== 'undefined' ? form_values.title : '' %>" required>
           </div>
           <div class="form-group">
             <label for="practice-area">Practice Area</label>
             <select id="practice-area" name="practice-area" required>
               <option value="">Select a practice area</option>
-              <option value="Slip/Trip Fall">Slip/Trip Fall</option>
-              <option value="Negligence Security">Negligence Security</option>
-              <option value="Car Crashes">Car Crashes</option>
-              <option value="Professional Negligence">Professional Negligence</option>
-              <option value="Workers Compensation">Workers Compensation</option>
-              <option value="Products Liability">Products Liability</option>
-              <option value="Wrongful Death">Wrongful Death</option>
-              <option value="Motorcycle Crash">Motorcycle Crash</option>
-              <option value="Other">Other</option>
+              <option value="Slip/Trip Fall" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Slip/Trip Fall' ? 'selected' : '' %>>Slip/Trip Fall</option>
+              <option value="Negligence Security" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Negligence Security' ? 'selected' : '' %>>Negligence Security</option>
+              <option value="Car Crashes" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Car Crashes' ? 'selected' : '' %>>Car Crashes</option>
+              <option value="Professional Negligence" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Professional Negligence' ? 'selected' : '' %>>Professional Negligence</option>
+              <option value="Workers Compensation" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Workers Compensation' ? 'selected' : '' %>>Workers Compensation</option>
+              <option value="Products Liability" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Products Liability' ? 'selected' : '' %>>Products Liability</option>
+              <option value="Wrongful Death" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Wrongful Death' ? 'selected' : '' %>>Wrongful Death</option>
+              <option value="Motorcycle Crash" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Motorcycle Crash' ? 'selected' : '' %>>Motorcycle Crash</option>
+              <option value="Other" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Other' ? 'selected' : '' %>>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="preferred-contact">Preferred Contact Method</label>
+            <select id="preferred-contact" name="preferred-contact" required>
+              <option value="">Select contact method</option>
+              <option value="email" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'email' ? 'selected' : '' %>>Email</option>
+              <option value="phone" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'phone' ? 'selected' : '' %>>Phone</option>
+              <option value="either" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'either' ? 'selected' : '' %>>Either</option>
             </select>
           </div>
           <div class="form-group">
             <label for="description">Case Description</label>
-            <textarea id="description" name="description" required placeholder="Please provide detailed information about your case..."></textarea>
+            <textarea id="description" name="description" required placeholder="Please provide detailed information about your case..."><%= typeof form_values !== 'undefined' ? form_values.description : '' %></textarea>
           </div>
           <button type="submit" class="btn">Submit Case</button>
         </form>
