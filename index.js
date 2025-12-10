@@ -181,6 +181,8 @@ const validateUserPassword = async (user, password) => {
 
 // Tells Express how to read form data sent in the body of a request
 app.use(express.urlencoded({extended: true}));
+// Tells Express how to parse JSON data in request bodies
+app.use(express.json());
 
 // Global authentication middleware - runs on EVERY request
 app.use((req, res, next) => {
@@ -217,11 +219,188 @@ app.get("/faq", (req, res) => {
 });
 
 app.get("/submit", (req, res) => {
-    res.render("submit");
+    res.render("submit", {
+        success_message: "",
+        error_message: "",
+        form_values: { title: "", description: "", practice_area: "" }
+    });
 });
 
-app.get("/review", (req, res) => {
-    res.render("review");
+/*=======================================
+Case Submission Handler
+=======================================*/
+app.post("/submit", async (req, res) => {
+    const title = (req.body.title || "").trim();
+    const description = (req.body.description || "").trim();
+    const practiceAreaText = req.body["practice-area"] || "";
+    const preferredContact = req.body["preferred-contact"] || "";
+
+    if (!title || !description || !practiceAreaText || !preferredContact) {
+        return res.render("submit", { 
+            error_message: "All fields are required.",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+        });
+    }
+
+    const practiceAreaMap = {
+        "Slip/Trip Fall": 1,
+        "Negligence Security": 2,
+        "Car Crashes": 3,
+        "Professional Negligence": 4,
+        "Workers Compensation": 5,
+        "Products Liability": 6,
+        "Wrongful Death": 7,
+        "Motorcycle Crash": 8,
+        "Other": 9
+    };
+
+    const practiceAreaId = practiceAreaMap[practiceAreaText];
+    if (!practiceAreaId) {
+        return res.render("submit", { 
+            error_message: "Invalid practice area selected.",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+        });
+    }
+
+    try {
+        if (!req.session.userId) {
+            return res.render("submit", { 
+                error_message: "You must be logged in to submit a case.",
+                success_message: "",
+                form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+            });
+        }
+        
+        let client = await knex("client")
+            .select("client_id")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        if (!client) {
+            const user = await knex("user_account")
+                .select("first_name", "last_name", "email", "phone")
+                .where("user_id", req.session.userId)
+                .first();
+            
+            if (!user) {
+                return res.render("submit", { 
+                    error_message: "User account not found. Please contact support.",
+                    success_message: "",
+                    form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+                });
+            }
+            
+            const [clientId] = await knex("client").insert({
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                phone: user.phone,
+                preferred_contact_method: preferredContact,
+                created_on: knex.fn.now(),
+                user_id: req.session.userId
+            });
+            
+            client = { client_id: clientId };
+        }
+        
+        const newCase = {
+            title: title,
+            description: description,
+            opened_on: new Date(),
+            closed_on: null,
+            priority: "low",
+            reference_no: 0,
+            is_public_submission: 1,
+            status_id: 1,
+            practice_area_id: practiceAreaId,
+            client_id: client.client_id
+        };
+
+        await knex("case_info").insert(newCase);
+        
+        res.render("submit", { 
+            success_message: "Your case has been submitted successfully. We will review it and contact you soon.",
+            error_message: "",
+            form_values: { title: "", description: "", practice_area: "", preferred_contact: "" }
+        });
+    } catch (err) {
+        console.error("Case submission error:", err.message);
+        res.render("submit", { 
+            error_message: "Unable to submit your case right now. Please try again later.",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+        });
+    }
+});
+
+app.get("/review", async (req, res) => {
+    try {
+        const cases = await knex('case_info')
+            .join('client', 'case_info.client_id', 'client.client_id')
+            .join('user_account', 'client.user_id', 'user_account.user_id')
+            .leftJoin('practice_area', 'case_info.practice_area_id', 'practice_area.practice_area_id')
+            .select(
+                'case_info.case_id',
+                'case_info.title',
+                'case_info.description',
+                'case_info.opened_on',
+                'case_info.priority',
+                'case_info.reference_no',
+                'case_info.status_id',
+                'user_account.first_name',
+                'user_account.last_name',
+                'client.email',
+                'client.phone',
+                'client.preferred_contact_method',
+                'practice_area.name as practice_area_name'
+            )
+            .orderBy('case_info.opened_on', 'desc');
+
+        res.render("review", { cases });
+    } catch (error) {
+        console.error("Error fetching cases:", error);
+        res.render("review", { cases: [] });
+    }
+});
+
+app.post("/update-case", async (req, res) => {
+    const { case_id, title, description, priority, status_id } = req.body;
+
+    if (!case_id || !title || !description || !priority || !status_id) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const validPriorities = ["low", "medium", "high"];
+    if (!validPriorities.includes(priority.toLowerCase())) {
+        return res.status(400).json({ error: "Invalid priority value" });
+    }
+
+    const validStatuses = [1, 2, 3];
+    const statusIdNum = parseInt(status_id);
+    if (!validStatuses.includes(statusIdNum)) {
+        return res.status(400).json({ error: "Invalid status value" });
+    }
+
+    try {
+        const updateData = {
+            title: title,
+            description: description,
+            priority: priority.toLowerCase(),
+            status_id: statusIdNum
+        };
+
+        if (statusIdNum === 3) {
+            updateData.closed_on = knex.fn.now();
+        }
+
+        await knex('case_info')
+            .where('case_id', case_id)
+            .update(updateData);
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error updating case:", error);
+        res.status(500).json({ error: "Failed to update case" });
+    }
 });
 
 /*=======================================
@@ -260,8 +439,8 @@ app.post("/login", async (req, res) => {
         }
 
         req.session.isLoggedIn = true;
-        req.session.username = user.username;
-        req.session.userId = user.id;
+        req.session.username = user.email;
+        req.session.userId = user.user_id;
         res.redirect("/");
     } catch (err) {
         console.error("Login error:", err.message);

@@ -78,7 +78,23 @@
     .case-status.open{
       background:#e8f5e9; color:#2e7d32;
     }
+    .case-status.in-progress{
+      background:#fff3e0; color:#ef6c00;
+    }
     .case-status.closed{
+      background:#ffebee; color:#c62828;
+    }
+    .priority-badge{
+      padding:4px 10px; border-radius:6px; font-size:13px; font-weight:600;
+      display:inline-block;
+    }
+    .priority-badge.low{
+      background:#e3f2fd; color:#1565c0;
+    }
+    .priority-badge.medium{
+      background:#fff3e0; color:#ef6c00;
+    }
+    .priority-badge.high{
       background:#ffebee; color:#c62828;
     }
     .case-meta{
@@ -98,13 +114,74 @@
     .case-description{
       color:var(--gray-800); margin-bottom:16px; line-height:1.7;
     }
-    .btn-respond{
-      display:inline-block; padding:10px 20px; border:2px solid var(--navy); color:#fff;
-      background:var(--navy); text-decoration:none; font-weight:700; border-radius:6px;
+    .btn-edit{
+      display:inline-block; padding:10px 20px; border:2px solid var(--gray-600); color:var(--gray-800);
+      background:#fff; text-decoration:none; font-weight:700; border-radius:6px;
       cursor:pointer; font-size:15px;
     }
-    .btn-respond:hover{
+    .btn-edit:hover{
+      background:var(--gray-600); color:#fff;
+    }
+    .btn-contact{
+      display:inline-block; padding:10px 20px; border:2px solid var(--navy); color:#fff;
+      background:var(--navy); text-decoration:none; font-weight:700; border-radius:6px;
+      cursor:pointer; font-size:15px; margin-left:10px;
+    }
+    .btn-contact:hover{
       background:var(--navy-600); border-color:var(--navy-600);
+    }
+    .btn-save{
+      display:inline-block; padding:10px 20px; border:2px solid #2e7d32; color:#fff;
+      background:#2e7d32; text-decoration:none; font-weight:700; border-radius:6px;
+      cursor:pointer; font-size:15px; margin-right:10px;
+    }
+    .btn-save:hover{
+      background:#1b5e20; border-color:#1b5e20;
+    }
+    .btn-cancel{
+      display:inline-block; padding:10px 20px; border:2px solid var(--gray-600); color:var(--gray-800);
+      background:#fff; text-decoration:none; font-weight:700; border-radius:6px;
+      cursor:pointer; font-size:15px;
+    }
+    .btn-cancel:hover{
+      background:var(--gray-300);
+    }
+    .edit-form{
+      display:none; margin-top:16px; padding:16px; background:var(--gray-100);
+      border-radius:6px; border:2px solid var(--navy);
+    }
+    .edit-form.show{
+      display:block;
+    }
+    .edit-form input, .edit-form textarea, .edit-form select{
+      width:100%; padding:10px; margin-bottom:12px; border:1px solid var(--gray-300);
+      border-radius:6px; font-family:inherit; font-size:14px;
+    }
+    .edit-form label{
+      display:block; font-weight:600; color:var(--gray-600); margin-bottom:6px;
+    }
+    .edit-form textarea{
+      min-height:100px; resize:vertical;
+    }
+    .view-mode{}
+    .view-mode.hide{
+      display:none;
+    }
+    .contact-info{
+      margin-top:16px; padding:16px; background:var(--gray-100); border-radius:6px;
+      border-left:4px solid var(--gold); display:none;
+    }
+    .contact-info.show{
+      display:block;
+    }
+    .contact-info-item{
+      margin-bottom:8px; font-size:14px;
+    }
+    .contact-info-label{
+      font-weight:600; color:var(--gray-600); display:inline-block; width:180px;
+    }
+    .contact-info-value{
+      color:var(--gray-800);
     }
 
     /*=======================================
@@ -160,35 +237,101 @@
       <div class="cases-container">
         <% if (typeof cases !== 'undefined' && cases.length > 0) { %>
           <% cases.forEach(function(caseItem) { %>
-            <div class="case-card">
-              <div class="case-header">
-                <h3 class="case-title"><%= caseItem.title %></h3>
-                <span class="case-status <%= caseItem.status.toLowerCase() %>">
-                  <%= caseItem.status %>
-                </span>
+            <% 
+              let statusText = 'Open';
+              let statusClass = 'open';
+              if (caseItem.status_id === 2) {
+                statusText = 'In Progress';
+                statusClass = 'in-progress';
+              } else if (caseItem.status_id === 3) {
+                statusText = 'Closed';
+                statusClass = 'closed';
+              }
+              const priorityValue = caseItem.priority || 'low';
+            %>
+            <div class="case-card" id="case-<%= caseItem.case_id %>">
+              <div class="view-mode" id="view-<%= caseItem.case_id %>">
+                <div class="case-header">
+                  <h3 class="case-title"><%= caseItem.title %></h3>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="priority-badge <%= priorityValue %>">
+                      Priority: <%= priorityValue.charAt(0).toUpperCase() + priorityValue.slice(1) %>
+                    </span>
+                    <span class="case-status <%= statusClass %>">
+                      <%= statusText %>
+                    </span>
+                  </div>
+                </div>
+                
+                <div class="case-meta">
+                  <div class="case-meta-item">
+                    <span class="case-meta-label">Client Name:</span>
+                    <span class="case-meta-value"><%= caseItem.first_name %> <%= caseItem.last_name %></span>
+                  </div>
+                  <div class="case-meta-item">
+                    <span class="case-meta-label">Practice Area:</span>
+                    <span class="case-meta-value"><%= caseItem.practice_area_name || 'N/A' %></span>
+                  </div>
+                  <div class="case-meta-item">
+                    <span class="case-meta-label">Submission Date:</span>
+                    <span class="case-meta-value"><%= new Date(caseItem.opened_on).toLocaleDateString() %></span>
+                  </div>
+                  <div class="case-meta-item">
+                    <span class="case-meta-label">Case ID:</span>
+                    <span class="case-meta-value"><%= caseItem.case_id %></span>
+                  </div>
+                </div>
+                
+                <div class="case-description">
+                  <strong>Description:</strong><br>
+                  <%= caseItem.description %>
+                </div>
+                
+                <button class="btn-edit" onclick="toggleEdit(<%= caseItem.case_id %>)">Edit</button>
+                <button class="btn-contact" onclick="toggleContact(<%= caseItem.case_id %>)">Contact</button>
+                
+                <div class="contact-info" id="contact-<%= caseItem.case_id %>">
+                  <div class="contact-info-item">
+                    <span class="contact-info-label">Email:</span>
+                    <span class="contact-info-value"><%= caseItem.email %></span>
+                  </div>
+                  <div class="contact-info-item">
+                    <span class="contact-info-label">Phone:</span>
+                    <span class="contact-info-value"><%= caseItem.phone %></span>
+                  </div>
+                  <div class="contact-info-item">
+                    <span class="contact-info-label">Preferred Contact:</span>
+                    <span class="contact-info-value"><%= (caseItem.preferred_contact_method || 'N/A').charAt(0).toUpperCase() + (caseItem.preferred_contact_method || 'N/A').slice(1) %></span>
+                  </div>
+                </div>
               </div>
               
-              <div class="case-meta">
-                <div class="case-meta-item">
-                  <span class="case-meta-label">Client Name:</span>
-                  <span class="case-meta-value"><%= caseItem.first_name %> <%= caseItem.last_name %></span>
-                </div>
-                <div class="case-meta-item">
-                  <span class="case-meta-label">Practice Area:</span>
-                  <span class="case-meta-value"><%= caseItem.practice_area %></span>
-                </div>
-                <div class="case-meta-item">
-                  <span class="case-meta-label">Submission Date:</span>
-                  <span class="case-meta-value"><%= new Date(caseItem.submission_date).toLocaleDateString() %></span>
+              <div class="edit-form" id="edit-<%= caseItem.case_id %>">
+                <label>Title:</label>
+                <input type="text" id="title-<%= caseItem.case_id %>" value="<%= caseItem.title %>">
+                
+                <label>Description:</label>
+                <textarea id="description-<%= caseItem.case_id %>"><%= caseItem.description %></textarea>
+                
+                <label>Priority:</label>
+                <select id="priority-<%= caseItem.case_id %>">
+                  <option value="low" <%= priorityValue === 'low' ? 'selected' : '' %>>Low</option>
+                  <option value="medium" <%= priorityValue === 'medium' ? 'selected' : '' %>>Medium</option>
+                  <option value="high" <%= priorityValue === 'high' ? 'selected' : '' %>>High</option>
+                </select>
+                
+                <label>Status:</label>
+                <select id="status-<%= caseItem.case_id %>">
+                  <option value="1" <%= caseItem.status_id === 1 ? 'selected' : '' %>>Open</option>
+                  <option value="2" <%= caseItem.status_id === 2 ? 'selected' : '' %>>In Progress</option>
+                  <option value="3" <%= caseItem.status_id === 3 ? 'selected' : '' %>>Closed</option>
+                </select>
+                
+                <div style="margin-top:16px;">
+                  <button class="btn-save" onclick="saveCase(<%= caseItem.case_id %>)">Save</button>
+                  <button class="btn-cancel" onclick="toggleEdit(<%= caseItem.case_id %>)">Cancel</button>
                 </div>
               </div>
-              
-              <div class="case-description">
-                <strong>Description:</strong><br>
-                <%= caseItem.description %>
-              </div>
-              
-              <button class="btn-respond" onclick="respondToCase(<%= caseItem.id %>)">Respond</button>
             </div>
           <% }); %>
         <% } else { %>
@@ -225,9 +368,52 @@
 
   <script>
     document.getElementById('yr').textContent = new Date().getFullYear();
-    
-    function respondToCase(caseId) {
-      alert('Respond to case #' + caseId + ' - This will be implemented when the database is connected.');
+
+    function toggleContact(caseId) {
+      const contactInfo = document.getElementById('contact-' + caseId);
+      contactInfo.classList.toggle('show');
+    }
+
+    function toggleEdit(caseId) {
+      const viewMode = document.getElementById('view-' + caseId);
+      const editForm = document.getElementById('edit-' + caseId);
+      
+      viewMode.classList.toggle('hide');
+      editForm.classList.toggle('show');
+    }
+
+    async function saveCase(caseId) {
+      const title = document.getElementById('title-' + caseId).value;
+      const description = document.getElementById('description-' + caseId).value;
+      const priority = document.getElementById('priority-' + caseId).value;
+      const status = document.getElementById('status-' + caseId).value;
+
+      try {
+        const response = await fetch('/update-case', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            case_id: caseId, 
+            title: title,
+            description: description,
+            priority: priority,
+            status_id: status
+          })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          location.reload();
+        } else {
+          alert('Failed to update case: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error updating case:', error);
+        alert('Failed to update case. Please try again.');
+      }
     }
   </script>
 </body>
