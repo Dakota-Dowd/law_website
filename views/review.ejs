@@ -163,7 +163,6 @@
     .edit-form textarea{
       min-height:100px; resize:vertical;
     }
-    .view-mode{}
     .view-mode.hide{
       display:none;
     }
@@ -287,8 +286,8 @@
                   <%= caseItem.description %>
                 </div>
                 
-                <button class="btn-edit" onclick="toggleEdit(<%= caseItem.case_id %>)">Edit</button>
-                <button class="btn-contact" onclick="toggleContact(<%= caseItem.case_id %>)">Contact</button>
+                <button class="btn-edit" onclick="toggleEdit('<%= caseItem.case_id %>')">Edit</button>
+                <button class="btn-contact" onclick="toggleContact('<%= caseItem.case_id %>')">Contact</button>
                 
                 <div class="contact-info" id="contact-<%= caseItem.case_id %>">
                   <div class="contact-info-item">
