@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Submit Your Case — Injury Lawyers of Nevada</title>
+  <title>My Submissions — Injury Lawyers of Nevada</title>
   <style>
     /*=======================================
     Classic & Formal Theme (Navy / Gray)
@@ -40,11 +40,11 @@
       font-weight:700; letter-spacing:1px;
     }
     .brand h1{font-size:20px; margin:0; font-weight:700;}
+    .nav{display:flex; align-items:center;}
     .nav a{
       color:#e9edf5; text-decoration:none; margin-left:18px; font-size:15px;
     }
     .nav a:hover{color:#fff; text-decoration:underline;}
-    .nav{display:flex; align-items:center;}
     .account-dropdown{
       position:relative; display:inline-block; margin-left:18px;
     }
@@ -66,38 +66,74 @@
     .dropdown-content:hover{display:block;}
 
     /*=======================================
-    Submit Section
+    Submissions Section
     =======================================*/
-    .submit-section{
+    .submissions-section{
       padding:56px 0;
       background:#fff;
-      border-bottom:1px solid var(--gray-300);
     }
-    .submit-container{
-      max-width:700px; margin:0 auto; padding:40px; border:1px solid var(--gray-300); border-radius:10px;
-      background:var(--gray-100);
-    }
-    .submit-title{
+    .submissions-title{
       font-size:26px; margin:0 0 10px; color:var(--navy); text-align:center;
     }
-    .submit-subtitle{
+    .submissions-subtitle{
       text-align:center; color:var(--gray-600); margin-bottom:28px; font-style:italic;
     }
-    .form-group{margin-bottom:20px;}
-    .form-group label{display:block; margin-bottom:6px; color:var(--gray-800); font-weight:600;}
-    .form-group input, .form-group select, .form-group textarea{
-      width:100%; padding:10px; border:1px solid var(--gray-300); border-radius:6px; font-size:16px;
-      box-sizing:border-box; font-family: "Georgia", "Times New Roman", serif;
+    .cases-container{
+      max-width:900px; margin:0 auto;
     }
-    .form-group textarea{
-      min-height:150px; resize:vertical;
+    .case-card{
+      background:#fff; border:1px solid var(--gray-300); border-radius:10px;
+      padding:24px; margin-bottom:20px; box-shadow:0 2px 4px rgba(0,0,0,0.05);
     }
-    .btn{
-      display:inline-block; padding:12px 24px; border:2px solid var(--navy); color:#fff; text-decoration:none;
-      font-weight:700; border-radius:6px; background:var(--navy); cursor:pointer; font-size:16px;
-      width:100%;
+    .case-header{
+      display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;
+      flex-wrap:wrap; gap:12px;
     }
-    .btn:hover{background:var(--navy-600); border-color:var(--navy-600);}
+    .case-title{
+      font-size:20px; font-weight:700; color:var(--navy); margin:0;
+    }
+    .case-status{
+      padding:6px 14px; border-radius:999px; font-size:14px; font-weight:600;
+    }
+    .case-status.open{
+      background:#e8f5e9; color:#2e7d32;
+    }
+    .case-status.in-progress{
+      background:#fff3e0; color:#ef6c00;
+    }
+    .case-status.closed{
+      background:#ffebee; color:#c62828;
+    }
+    .priority-badge{
+      padding:4px 10px; border-radius:6px; font-size:13px; font-weight:600;
+      display:inline-block;
+    }
+    .priority-badge.low{
+      background:#e3f2fd; color:#1565c0;
+    }
+    .priority-badge.medium{
+      background:#fff3e0; color:#ef6c00;
+    }
+    .priority-badge.high{
+      background:#ffebee; color:#c62828;
+    }
+    .case-meta{
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;
+      margin-bottom:16px; padding:12px 0; border-top:1px solid var(--gray-300);
+      border-bottom:1px solid var(--gray-300);
+    }
+    .case-meta-item{
+      font-size:14px;
+    }
+    .case-meta-label{
+      color:var(--gray-600); font-weight:600; display:block;
+    }
+    .case-meta-value{
+      color:var(--gray-800);
+    }
+    .case-description{
+      color:var(--gray-800); margin-bottom:16px; line-height:1.7;
+    }
 
     /*=======================================
     Footer
@@ -114,7 +150,8 @@
     Responsive
     =======================================*/
     @media (max-width: 820px){
-      .submit-container{padding:20px;}
+      .case-header{flex-direction:column;}
+      .case-meta{grid-template-columns:1fr;}
     }
   </style>
 </head>
@@ -134,16 +171,16 @@
         <a href="/about">About Us</a>
         <a href="/faq">FAQ</a>
         <a href="/submit">Submission Page</a>
-        <% if (typeof roleId !== 'undefined' && (roleId === 1 || roleId === 2)) { %>
+        <% if (roleId === 1 || roleId === 2) { %>
           <a href="/review">Lawyer Review Page</a>
         <% } %>
-        <% if (typeof isLoggedIn !== 'undefined' && isLoggedIn) { %>
+        <% if (isLoggedIn) { %>
           <div class="account-dropdown">
             <button class="account-btn">Account</button>
             <div class="dropdown-content">
               <a href="/profile">View/Edit Profile</a>
               <a href="/my-submissions">View Submissions</a>
-              <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+              <% if (isAdmin) { %>
                 <a href="/manage-users">Manage Users</a>
               <% } %>
               <a href="/logout">Log Out</a>
@@ -157,61 +194,69 @@
   </header>
 
   <!--=======================================
-  Submit Section
+  Submissions Section
   =======================================-->
-  <section class="submit-section">
+  <section class="submissions-section">
     <div class="wrap">
-      <div class="submit-container">
-        <h2 class="submit-title">Submit Your Case</h2>
-        <p class="submit-subtitle">We'll review your case and get back to you shortly.</p>
-        
-        <% if (typeof success_message !== 'undefined' && success_message) { %>
-          <div style="background:#e8f5e9; color:#2e7d32; padding:12px; border-radius:6px; margin-bottom:20px; border:1px solid #a5d6a7;">
-            <%= success_message %>
+      <h2 class="submissions-title">My Case Submissions</h2>
+      <p class="submissions-subtitle">View the status of your submitted cases</p>
+      
+      <div class="cases-container">
+        <% if (typeof cases !== 'undefined' && cases.length > 0) { %>
+          <% cases.forEach(function(caseItem) { %>
+            <% 
+              let statusText = 'Open';
+              let statusClass = 'open';
+              if (caseItem.status_id === 2) {
+                statusText = 'In Progress';
+                statusClass = 'in-progress';
+              } else if (caseItem.status_id === 3) {
+                statusText = 'Closed';
+                statusClass = 'closed';
+              }
+              const priorityValue = caseItem.priority || 'low';
+            %>
+            <div class="case-card">
+              <div class="case-header">
+                <h3 class="case-title"><%= caseItem.title %></h3>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span class="priority-badge <%= priorityValue %>">
+                    Priority: <%= priorityValue.charAt(0).toUpperCase() + priorityValue.slice(1) %>
+                  </span>
+                  <span class="case-status <%= statusClass %>">
+                    <%= statusText %>
+                  </span>
+                </div>
+              </div>
+              
+              <div class="case-meta">
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Practice Area:</span>
+                  <span class="case-meta-value"><%= caseItem.practice_area_name || 'N/A' %></span>
+                </div>
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Submission Date:</span>
+                  <span class="case-meta-value"><%= new Date(caseItem.opened_on).toLocaleDateString() %></span>
+                </div>
+                <div class="case-meta-item">
+                  <span class="case-meta-label">Case ID:</span>
+                  <span class="case-meta-value"><%= caseItem.case_id %></span>
+                </div>
+              </div>
+              
+              <div class="case-description">
+                <strong>Description:</strong><br>
+                <%= caseItem.description %>
+              </div>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <div class="case-card">
+            <p style="text-align:center; color:var(--gray-600); margin:0;">
+              You have not submitted any cases yet.
+            </p>
           </div>
         <% } %>
-        
-        <% if (typeof error_message !== 'undefined' && error_message) { %>
-          <div style="background:#ffebee; color:#c62828; padding:12px; border-radius:6px; margin-bottom:20px; border:1px solid #ef9a9a;">
-            <%= error_message %>
-          </div>
-        <% } %>
-        
-        <form action="/submit" method="post">
-          <div class="form-group">
-            <label for="title">Case Title</label>
-            <input type="text" id="title" name="title" value="<%= typeof form_values !== 'undefined' ? form_values.title : '' %>" required>
-          </div>
-          <div class="form-group">
-            <label for="practice-area">Practice Area</label>
-            <select id="practice-area" name="practice-area" required>
-              <option value="">Select a practice area</option>
-              <option value="Slip/Trip Fall" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Slip/Trip Fall' ? 'selected' : '' %>>Slip/Trip Fall</option>
-              <option value="Negligence Security" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Negligence Security' ? 'selected' : '' %>>Negligence Security</option>
-              <option value="Car Crashes" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Car Crashes' ? 'selected' : '' %>>Car Crashes</option>
-              <option value="Professional Negligence" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Professional Negligence' ? 'selected' : '' %>>Professional Negligence</option>
-              <option value="Workers Compensation" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Workers Compensation' ? 'selected' : '' %>>Workers Compensation</option>
-              <option value="Products Liability" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Products Liability' ? 'selected' : '' %>>Products Liability</option>
-              <option value="Wrongful Death" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Wrongful Death' ? 'selected' : '' %>>Wrongful Death</option>
-              <option value="Motorcycle Crash" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Motorcycle Crash' ? 'selected' : '' %>>Motorcycle Crash</option>
-              <option value="Other" <%= typeof form_values !== 'undefined' && form_values.practice_area === 'Other' ? 'selected' : '' %>>Other</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="preferred-contact">Preferred Contact Method</label>
-            <select id="preferred-contact" name="preferred-contact" required>
-              <option value="">Select contact method</option>
-              <option value="email" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'email' ? 'selected' : '' %>>Email</option>
-              <option value="phone" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'phone' ? 'selected' : '' %>>Phone</option>
-              <option value="either" <%= typeof form_values !== 'undefined' && form_values.preferred_contact === 'either' ? 'selected' : '' %>>Either</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="description">Case Description</label>
-            <textarea id="description" name="description" required placeholder="Please provide detailed information about your case..."><%= typeof form_values !== 'undefined' ? form_values.description : '' %></textarea>
-          </div>
-          <button type="submit" class="btn">Submit Case</button>
-        </form>
       </div>
     </div>
   </section>

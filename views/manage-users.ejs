@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manage Users — Injury Lawyers of Nevada</title>
+  <style>
+    /*=======================================
+    Classic & Formal Theme (Navy / Gray)
+    =======================================*/
+    :root{
+      --navy:#0c2340;
+      --navy-600:#12325f;
+      --gray-100:#f6f7f9;
+      --gray-300:#d9dde3;
+      --gray-600:#616a76;
+      --gray-800:#2f3540;
+      --gold:#bfa76f;
+      --max:1100px;
+    }
+    html,body{margin:0;padding:0;background:var(--gray-100);color:var(--gray-800);}
+    body{font-family: "Georgia", "Times New Roman", serif; line-height:1.6;}
+
+    /*=======================================
+    Top Bar
+    =======================================*/
+    .topbar{
+      background:var(--navy);
+      color:#fff;
+      border-bottom:4px solid var(--gold);
+      position:sticky;
+      top:0;
+      z-index:100;
+    }
+    .wrap{max-width:var(--max); margin:0 auto; padding:0 20px;}
+    .topbar-inner{display:flex; align-items:center; justify-content:space-between; padding:14px 0;}
+    .brand{display:flex; align-items:center; gap:12px; text-decoration:none; color:#fff;}
+    .brand-mark{
+      width:38px;height:38px; border:2px solid #fff; border-radius:6px; display:grid; place-items:center;
+      font-weight:700; letter-spacing:1px;
+    }
+    .brand h1{font-size:20px; margin:0; font-weight:700;}
+    .nav{display:flex; align-items:center;}
+    .nav a{
+      color:#e9edf5; text-decoration:none; margin-left:18px; font-size:15px;
+    }
+    .nav a:hover{color:#fff; text-decoration:underline;}
+    .account-dropdown{
+      position:relative; display:inline-block; margin-left:18px;
+    }
+    .account-btn{
+      color:#fff; font-weight:700; cursor:pointer; font-size:15px; background:rgba(255,255,255,0.15);
+      border:none; padding:8px 16px; font-family:inherit; border-radius:6px;
+    }
+    .account-btn:hover{background:rgba(255,255,255,0.25);}
+    .dropdown-content{
+      display:none; position:absolute; right:0; background:#fff; min-width:180px;
+      box-shadow:0 4px 8px rgba(0,0,0,0.2); border-radius:6px; margin-top:0; padding-top:4px; z-index:1000;
+    }
+    .dropdown-content a{
+      color:var(--gray-800); padding:12px 16px; text-decoration:none; display:block;
+      font-size:14px; margin:0;
+    }
+    .dropdown-content a:hover{background:var(--gray-100); color:var(--gray-800);}
+    .account-dropdown:hover .dropdown-content,
+    .dropdown-content:hover{display:block;}
+
+    /*=======================================
+    Manage Users Section
+    =======================================*/
+    .manage-section{
+      padding:56px 0;
+      background:#fff;
+    }
+    .manage-title{
+      font-size:26px; margin:0 0 10px; color:var(--navy); text-align:center;
+    }
+    .manage-subtitle{
+      text-align:center; color:var(--gray-600); margin-bottom:28px; font-style:italic;
+    }
+    .search-container{
+      max-width:900px; margin:0 auto 20px; display:flex; justify-content:center;
+    }
+    .search-input{
+      width:100%; max-width:500px; padding:12px 16px; border:1px solid var(--gray-300);
+      border-radius:6px; font-size:15px; font-family:inherit;
+    }
+    .search-input:focus{
+      outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(12,35,64,0.1);
+    }
+    .users-table{
+      max-width:900px; margin:0 auto; background:#fff; border:1px solid var(--gray-300);
+      border-radius:10px; overflow:hidden;
+    }
+    table{
+      width:100%; border-collapse:collapse;
+    }
+    thead{
+      background:var(--navy); color:#fff;
+    }
+    thead th{
+      padding:16px; text-align:left; font-weight:700;
+    }
+    tbody tr{
+      border-bottom:1px solid var(--gray-300);
+    }
+    tbody tr:hover{
+      background:var(--gray-100);
+    }
+    tbody td{
+      padding:16px;
+    }
+    .role-select{
+      padding:8px 12px; border:1px solid var(--gray-300); border-radius:6px;
+      font-size:14px; font-family:inherit; background:#fff;
+    }
+    .btn-save{
+      padding:8px 16px; background:var(--navy); color:#fff; border:none;
+      border-radius:6px; cursor:pointer; font-weight:700; font-size:14px;
+    }
+    .btn-save:hover{
+      background:var(--navy-600);
+    }
+    .btn-delete{
+      padding:8px 16px; background:#d32f2f; color:#fff; border:none;
+      border-radius:6px; cursor:pointer; font-weight:700; font-size:14px;
+      margin-left:8px;
+    }
+    .btn-delete:hover{
+      background:#c62828;
+    }
+    .success-msg{
+      background:#e8f5e9; color:#2e7d32; padding:12px; border-radius:6px;
+      margin:0 auto 20px; max-width:900px; border:1px solid #a5d6a7;
+    }
+
+    /*=======================================
+    Footer
+    =======================================*/
+    footer{
+      background:#fff; border-top:1px solid var(--gray-300); color:var(--gray-600);
+      padding:22px 0; font-size:14px;
+    }
+    .footgrid{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;}
+    .footnav a{color:var(--gray-600); text-decoration:none; margin-right:14px;}
+    .footnav a:hover{text-decoration:underline;}
+  </style>
+</head>
+<body>
+
+  <!--=======================================
+  Top Navigation
+  =======================================-->
+  <header class="topbar" role="banner">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="/index">
+        <span class="brand-mark">ILN</span>
+        <h1>Injury Lawyers of Nevada</h1>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/index">Home</a>
+        <a href="/about">About Us</a>
+        <a href="/faq">FAQ</a>
+        <a href="/submit">Submission Page</a>
+        <% if (roleId === 1 || roleId === 2) { %>
+          <a href="/review">Lawyer Review Page</a>
+        <% } %>
+        <% if (isLoggedIn) { %>
+          <div class="account-dropdown">
+            <button class="account-btn">Account</button>
+            <div class="dropdown-content">
+              <a href="/profile">View/Edit Profile</a>
+              <a href="/my-submissions">View Submissions</a>
+              <% if (isAdmin) { %>
+                <a href="/manage-users">Manage Users</a>
+              <% } %>
+              <a href="/logout">Log Out</a>
+            </div>
+          </div>
+        <% } else { %>
+          <a href="/login"><strong>Login</strong></a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+
+  <!--=======================================
+  Manage Users Section
+  =======================================-->
+  <section class="manage-section">
+    <div class="wrap">
+      <h2 class="manage-title">Manage Users</h2>
+      <p class="manage-subtitle">Update user access levels and permissions</p>
+      
+      <% if (typeof success_message !== 'undefined' && success_message) { %>
+        <div class="success-msg">
+          <%= success_message %>
+        </div>
+      <% } %>
+      
+      <div class="search-container">
+        <input type="text" id="userSearch" class="search-input" placeholder="Search by name or email..." />
+      </div>
+      
+      <div class="users-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Access Level</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (users && users.length > 0) { %>
+              <% users.forEach(function(user) { %>
+                <tr>
+                  <td><%= user.first_name %> <%= user.last_name %></td>
+                  <td><%= user.email %></td>
+                  <td>
+                    <select class="role-select" id="role-<%= user.user_id %>">
+                      <option value="1" <%= user.role_id === 1 ? 'selected' : '' %>>Admin</option>
+                      <option value="2" <%= user.role_id === 2 ? 'selected' : '' %>>Attorney</option>
+                      <option value="3" <%= (user.role_id === 3 || !user.role_id) ? 'selected' : '' %>>User</option>
+                    </select>
+                  </td>
+                  <td>
+                    <button class="btn-save" onclick="updateUserRole(<%= user.user_id %>)">Save</button>
+                    <button class="btn-delete" onclick="deleteUser(<%= user.user_id %>, '<%= user.first_name %> <%= user.last_name %>')">Delete</button>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="4" style="text-align:center; color:var(--gray-600);">No users found.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!--=======================================
+  Footer
+  =======================================-->
+  <footer role="contentinfo">
+    <div class="wrap footgrid">
+      <div>
+        © <span id="yr"></span> Injury Lawyers of Nevada. All rights reserved.
+        <span style="margin-left:10px">Las Vegas, NV</span>
+      </div>
+      <nav class="footnav" aria-label="Footer">
+        <a href="/index">Home</a>
+        <a href="/about">About Us</a>
+        <a href="/faq">FAQ</a>
+        <a href="/login">Login</a>
+      </nav>
+    </div>
+    <div class="wrap" style="margin-top:10px; color:#8a93a1;">
+      <small><em>*Contingency fee structure varies by case. This website is for informational purposes only and does not constitute legal advice. Viewing this site or contacting us does not create an attorney–client relationship.</em></small>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    const searchInput = document.getElementById('userSearch');
+    searchInput.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase();
+      const tableRows = document.querySelectorAll('tbody tr');
+      
+      tableRows.forEach(row => {
+        const name = row.cells[0]?.textContent.toLowerCase() || '';
+        const email = row.cells[1]?.textContent.toLowerCase() || '';
+        
+        if (name.includes(searchTerm) || email.includes(searchTerm)) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    });
+
+    async function updateUserRole(userId) {
+      const roleSelect = document.getElementById('role-' + userId);
+      const roleId = roleSelect.value;
+
+      try {
+        const response = await fetch('/update-user-role', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ user_id: userId, role_id: roleId })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          location.reload();
+        } else {
+          alert('Failed to update user role: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error updating user role:', error);
+        alert('Failed to update user role. Please try again.');
+      }
+    }
+
+    async function deleteUser(userId, userName) {
+      try {
+        // First, get the case count for this user
+        const countResponse = await fetch('/user-case-count/' + userId);
+        const countData = await countResponse.json();
+        
+        if (!countData.success) {
+          alert('Failed to retrieve user information.');
+          return;
+        }
+
+        const caseCount = countData.caseCount;
+        let confirmMessage = 'Are you sure you want to delete ' + userName + '?';
+        
+        if (caseCount > 0) {
+          confirmMessage += ' This will also delete ' + caseCount + ' submitted case' + (caseCount === 1 ? '' : 's') + '.';
+        }
+        
+        confirmMessage += ' This action cannot be undone.';
+
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+
+        const response = await fetch('/delete-user/' + userId, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          location.reload();
+        } else {
+          alert('Failed to delete user: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>
