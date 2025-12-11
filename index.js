@@ -267,34 +267,26 @@ app.post("/submit", async (req, res) => {
         });
     }
 
-    const practiceAreaMap = {
-        "Slip/Trip Fall": 1,
-        "Negligence Security": 2,
-        "Car Crashes": 3,
-        "Professional Negligence": 4,
-        "Workers Compensation": 5,
-        "Products Liability": 6,
-        "Wrongful Death": 7,
-        "Motorcycle Crash": 8,
-        "Other": 9
-    };
-
-    const practiceAreaId = practiceAreaMap[practiceAreaText];
-    if (!practiceAreaId) {
-        return res.render("submit", { 
-            error_message: "Invalid practice area selected.",
-            success_message: "",
-            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
-            isLoggedIn: req.session.isLoggedIn || false,
-            isAdmin: req.session.isAdmin || false,
-            roleId: req.session.roleId || null
-        });
-    }
-
     try {
         if (!req.session.userId) {
             return res.render("submit", { 
                 error_message: "You must be logged in to submit a case.",
+                success_message: "",
+                form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+                isLoggedIn: req.session.isLoggedIn || false,
+                isAdmin: req.session.isAdmin || false,
+                roleId: req.session.roleId || null
+            });
+        }
+
+        const practiceArea = await knex("practice_area")
+            .select("practice_area_id")
+            .where("name", practiceAreaText)
+            .first();
+
+        if (!practiceArea) {
+            return res.render("submit", { 
+                error_message: "Invalid practice area selected.",
                 success_message: "",
                 form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
                 isLoggedIn: req.session.isLoggedIn || false,
@@ -347,7 +339,7 @@ app.post("/submit", async (req, res) => {
             reference_no: 0,
             is_public_submission: 1,
             status_id: 1,
-            practice_area_id: practiceAreaId,
+            practice_area_id: practiceArea.practice_area_id,
             client_id: client.client_id
         };
 
@@ -456,6 +448,32 @@ app.post("/update-case", async (req, res) => {
     } catch (error) {
         console.error("Error updating case:", error);
         res.status(500).json({ error: "Failed to update case" });
+    }
+});
+
+/*=======================================
+Delete Case
+=======================================*/
+app.post("/delete-case", async (req, res) => {
+    if (!req.session.roleId || (req.session.roleId !== 1 && req.session.roleId !== 2)) {
+        return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const { case_id } = req.body;
+
+    if (!case_id) {
+        return res.status(400).json({ success: false, error: "Missing case_id" });
+    }
+
+    try {
+        await knex('case_info')
+            .where('case_id', case_id)
+            .del();
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error deleting case:", error);
+        res.status(500).json({ success: false, error: "Failed to delete case" });
     }
 });
 
@@ -953,16 +971,17 @@ app.post("/delete-user/:id", async (req, res) => {
     const userId = parseInt(req.params.id);
 
     try {
-        const client = await knex("client")
+        const clients = await knex("client")
             .select("client_id")
-            .where("user_id", userId)
-            .first();
+            .where("user_id", userId);
 
-        if (client) {
+        for (const client of clients) {
             await knex("case_info").where("client_id", client.client_id).del();
-            await knex("client").where("client_id", client.client_id).del();
+            await knex("address").where("client_id", client.client_id).del();
         }
 
+        await knex("client").where("user_id", userId).del();
+        await knex("login_audit").where("user_id", userId).del();
         await knex("user_role").where("user_id", userId).del();
         await knex("user_account").where("user_id", userId).del();
         
