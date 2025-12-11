@@ -202,27 +202,46 @@ app.use((req, res, next) => {
 
 // Main page route - notice it checks if they have logged in
 app.get("/", (req, res) => {       
-    res.render("index");
+    res.render("index", { 
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
+    });
 });
 
 app.get("/index", (req, res) => {
-    res.render("index");
+    res.render("index", { 
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
+    });
 });
 
 // Public informational pages
 app.get("/about", (req, res) => {
-    res.render("about");
+    res.render("about", { 
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
+    });
 });
 
 app.get("/faq", (req, res) => {
-    res.render("faq");
+    res.render("faq", { 
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
+    });
 });
 
 app.get("/submit", (req, res) => {
     res.render("submit", {
         success_message: "",
         error_message: "",
-        form_values: { title: "", description: "", practice_area: "" }
+        form_values: { title: "", description: "", practice_area: "", preferred_contact: "" },
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
     });
 });
 
@@ -238,7 +257,11 @@ app.post("/submit", async (req, res) => {
     if (!title || !description || !practiceAreaText || !preferredContact) {
         return res.render("submit", { 
             error_message: "All fields are required.",
-            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+            success_message: "",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
         });
     }
 
@@ -258,7 +281,11 @@ app.post("/submit", async (req, res) => {
     if (!practiceAreaId) {
         return res.render("submit", { 
             error_message: "Invalid practice area selected.",
-            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+            success_message: "",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
         });
     }
 
@@ -267,7 +294,10 @@ app.post("/submit", async (req, res) => {
             return res.render("submit", { 
                 error_message: "You must be logged in to submit a case.",
                 success_message: "",
-                form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+                form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+                isLoggedIn: req.session.isLoggedIn || false,
+                isAdmin: req.session.isAdmin || false,
+                roleId: req.session.roleId || null
             });
         }
         
@@ -286,7 +316,10 @@ app.post("/submit", async (req, res) => {
                 return res.render("submit", { 
                     error_message: "User account not found. Please contact support.",
                     success_message: "",
-                    form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+                    form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+                    isLoggedIn: req.session.isLoggedIn || false,
+                    isAdmin: req.session.isAdmin || false,
+                    roleId: req.session.roleId || null
                 });
             }
             
@@ -321,18 +354,29 @@ app.post("/submit", async (req, res) => {
         res.render("submit", { 
             success_message: "Your case has been submitted successfully. We will review it and contact you soon.",
             error_message: "",
-            form_values: { title: "", description: "", practice_area: "", preferred_contact: "" }
+            form_values: { title: "", description: "", practice_area: "", preferred_contact: "" },
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
         });
     } catch (err) {
         console.error("Case submission error:", err.message);
         res.render("submit", { 
             error_message: "Unable to submit your case right now. Please try again later.",
-            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact }
+            success_message: "",
+            form_values: { title, description, practice_area: practiceAreaText, preferred_contact: preferredContact },
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
         });
     }
 });
 
 app.get("/review", async (req, res) => {
+    if (!req.session.roleId || (req.session.roleId !== 1 && req.session.roleId !== 2)) {
+        return res.redirect("/");
+    }
+
     try {
         const cases = await knex('case_info')
             .join('client', 'case_info.client_id', 'client.client_id')
@@ -355,10 +399,20 @@ app.get("/review", async (req, res) => {
             )
             .orderBy('case_info.opened_on', 'desc');
 
-        res.render("review", { cases });
+        res.render("review", { 
+            cases, 
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
+        });
     } catch (error) {
         console.error("Error fetching cases:", error);
-        res.render("review", { cases: [] });
+        res.render("review", { 
+            cases: [], 
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
+        });
     }
 });
 
@@ -411,7 +465,14 @@ app.get("/login", (req, res) => {
     if (req.session.successMessage) {
         delete req.session.successMessage;
     }
-    res.render("login", { error_message: "", success_message: successMessage, username_value: "" });
+    res.render("login", { 
+        error_message: "", 
+        success_message: successMessage, 
+        username_value: "",
+        isLoggedIn: req.session.isLoggedIn || false,
+        isAdmin: req.session.isAdmin || false,
+        roleId: req.session.roleId || null
+    });
 });
 
 app.post("/login", async (req, res) => {
@@ -419,7 +480,14 @@ app.post("/login", async (req, res) => {
     const password = req.body.password || "";
 
     if (!username || !password) {
-        return res.render("login", { error_message: "Username and password are required", success_message: "", username_value: username });
+        return res.render("login", { 
+            error_message: "Incorrect email/password", 
+            success_message: "", 
+            username_value: username,
+            isLoggedIn: false,
+            isAdmin: false,
+            roleId: null
+        });
     }
 
     try {
@@ -429,22 +497,50 @@ app.post("/login", async (req, res) => {
             .first();
 
         if (!user) {
-            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+            return res.render("login", { 
+                error_message: "Incorrect email/password", 
+                success_message: "", 
+                username_value: username,
+                isLoggedIn: false,
+                isAdmin: false,
+                roleId: null
+            });
         }
 
         const authenticated = await validateUserPassword(user, password);
 
         if (!authenticated) {
-            return res.render("login", { error_message: "Invalid login", success_message: "", username_value: username });
+            return res.render("login", { 
+                error_message: "Incorrect email/password", 
+                success_message: "", 
+                username_value: username,
+                isLoggedIn: false,
+                isAdmin: false,
+                roleId: null
+            });
         }
+
+        const userRole = await knex("user_role")
+            .select("role_id")
+            .where("user_id", user.user_id)
+            .first();
 
         req.session.isLoggedIn = true;
         req.session.username = user.email;
         req.session.userId = user.user_id;
+        req.session.roleId = userRole ? userRole.role_id : 3;
+        req.session.isAdmin = userRole && userRole.role_id === 1;
         res.redirect("/");
     } catch (err) {
         console.error("Login error:", err.message);
-        res.render("login", { error_message: "Login failed. Please try again.", success_message: "", username_value: username });
+        res.render("login", { 
+            error_message: "Incorrect email/password", 
+            success_message: "", 
+            username_value: username,
+            isLoggedIn: false,
+            isAdmin: false,
+            roleId: null
+        });
     }
 });
 
@@ -524,6 +620,224 @@ app.get("/logout", (req, res) => {
     });
 });
 
+/*=======================================
+Admin Routes
+=======================================*/
+app.get("/manage-users", async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.redirect("/");
+    }
+
+    try {
+        const users = await knex("user_account")
+            .leftJoin("user_role", "user_account.user_id", "user_role.user_id")
+            .select(
+                "user_account.user_id",
+                "user_account.first_name",
+                "user_account.last_name",
+                "user_account.email",
+                "user_role.role_id"
+            )
+            .orderBy("user_account.last_name", "asc");
+
+        res.render("manage-users", {
+            users: users,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null,
+            success_message: ""
+        });
+    } catch (error) {
+        console.error("Error loading users:", error);
+        res.redirect("/");
+    }
+});
+
+app.post("/update-user-role", async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    const { user_id, role_id } = req.body;
+
+    if (!user_id || !role_id) {
+        return res.status(400).json({ error: "Missing user_id or role_id" });
+    }
+
+    const validRoles = [1, 2, 3];
+    const roleIdNum = parseInt(role_id);
+    if (!validRoles.includes(roleIdNum)) {
+        return res.status(400).json({ error: "Invalid role_id" });
+    }
+
+    try {
+        const existingRole = await knex("user_role")
+            .where("user_id", user_id)
+            .first();
+
+        if (existingRole) {
+            await knex("user_role")
+                .where("user_id", user_id)
+                .update({ role_id: roleIdNum });
+        } else {
+            await knex("user_role").insert({
+                user_id: user_id,
+                role_id: roleIdNum
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({ error: "Failed to update user role" });
+    }
+});
+
+/*=======================================
+Profile Routes
+=======================================*/
+app.get("/profile", async (req, res) => {
+    try {
+        const user = await knex("user_account")
+            .select("first_name", "last_name", "email", "phone")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        if (!user) {
+            return res.redirect("/login");
+        }
+        
+        res.render("profile", { 
+            user: user,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null,
+            success_message: "",
+            error_message: ""
+        });
+    } catch (error) {
+        console.error("Error loading profile:", error);
+        res.redirect("/");
+    }
+});
+
+app.post("/update-profile", async (req, res) => {
+    const { first_name, last_name, email, phone } = req.body;
+    
+    if (!first_name || !last_name || !email || !phone) {
+        const user = await knex("user_account")
+            .select("first_name", "last_name", "email", "phone")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        return res.render("profile", {
+            user: user,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null,
+            error_message: "All fields are required.",
+            success_message: ""
+        });
+    }
+    
+    try {
+        await knex("user_account")
+            .where("user_id", req.session.userId)
+            .update({
+                first_name: first_name,
+                last_name: last_name,
+                email: email,
+                phone: phone
+            });
+        
+        await knex("client")
+            .where("user_id", req.session.userId)
+            .update({
+                first_name: first_name,
+                last_name: last_name,
+                email: email,
+                phone: phone
+            });
+        
+        const user = await knex("user_account")
+            .select("first_name", "last_name", "email", "phone")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        res.render("profile", {
+            user: user,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null,
+            success_message: "Profile updated successfully!",
+            error_message: ""
+        });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        
+        const user = await knex("user_account")
+            .select("first_name", "last_name", "email", "phone")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        res.render("profile", {
+            user: user,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null,
+            error_message: "Failed to update profile. Please try again.",
+            success_message: ""
+        });
+    }
+});
+
+app.get("/my-submissions", async (req, res) => {
+    try {
+        const client = await knex("client")
+            .select("client_id")
+            .where("user_id", req.session.userId)
+            .first();
+        
+        if (!client) {
+            return res.render("my-submissions", { 
+                cases: [],
+                isLoggedIn: req.session.isLoggedIn || false,
+                isAdmin: req.session.isAdmin || false,
+                roleId: req.session.roleId || null
+            });
+        }
+        
+        const cases = await knex("case_info")
+            .leftJoin("practice_area", "case_info.practice_area_id", "practice_area.practice_area_id")
+            .select(
+                "case_info.case_id",
+                "case_info.title",
+                "case_info.description",
+                "case_info.opened_on",
+                "case_info.priority",
+                "case_info.status_id",
+                "practice_area.name as practice_area_name"
+            )
+            .where("case_info.client_id", client.client_id)
+            .orderBy("case_info.opened_on", "desc");
+        
+        res.render("my-submissions", { 
+            cases: cases,
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
+        });
+    } catch (error) {
+        console.error("Error loading submissions:", error);
+        res.render("my-submissions", { 
+            cases: [],
+            isLoggedIn: req.session.isLoggedIn || false,
+            isAdmin: req.session.isAdmin || false,
+            roleId: req.session.roleId || null
+        });
+    }
+});
+
 // Registration form
 app.get("/register", (req, res) => {
     res.render("create_user", { error_message: "" });
@@ -594,13 +908,67 @@ app.get("/users", (req, res) => {
     }
 });
 
-app.post("/deleteUser/:id", (req, res) => {
-    knex("user_account").where("user_id", req.params.id).del().then(users => {
-        res.redirect("/users");
-    }).catch(err => {
+/*=======================================
+Get User Case Count
+=======================================*/
+app.get("/user-case-count/:id", async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const userId = parseInt(req.params.id);
+
+    try {
+        const client = await knex("client")
+            .select("client_id")
+            .where("user_id", userId)
+            .first();
+
+        if (!client) {
+            return res.json({ success: true, caseCount: 0 });
+        }
+
+        const caseCount = await knex("case_info")
+            .count("case_id as count")
+            .where("client_id", client.client_id)
+            .first();
+
+        res.json({ success: true, caseCount: parseInt(caseCount.count) || 0 });
+    } catch (err) {
         console.log(err);
-        res.status(500).json({err});
-    })
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/*=======================================
+Delete User
+=======================================*/
+app.post("/delete-user/:id", async (req, res) => {
+    if (!req.session.isAdmin) {
+        return res.status(403).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const userId = parseInt(req.params.id);
+
+    try {
+        const client = await knex("client")
+            .select("client_id")
+            .where("user_id", userId)
+            .first();
+
+        if (client) {
+            await knex("case_info").where("client_id", client.client_id).del();
+            await knex("client").where("client_id", client.client_id).del();
+        }
+
+        await knex("user_role").where("user_id", userId).del();
+        await knex("user_account").where("user_id", userId).del();
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.listen(port, () => {

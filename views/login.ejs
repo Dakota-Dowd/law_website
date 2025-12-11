@@ -36,10 +36,30 @@
       font-weight:700; letter-spacing:1px;
     }
     .brand h1{font-size:20px; margin:0; font-weight:700;}
+    .nav{display:flex; align-items:center;}
     .nav a{
       color:#e9edf5; text-decoration:none; margin-left:18px; font-size:15px;
     }
     .nav a:hover{color:#fff; text-decoration:underline;}
+    .account-dropdown{
+      position:relative; display:inline-block; margin-left:18px;
+    }
+    .account-btn{
+      color:#fff; font-weight:700; cursor:pointer; font-size:15px; background:rgba(255,255,255,0.15);
+      border:none; padding:8px 16px; font-family:inherit; border-radius:6px;
+    }
+    .account-btn:hover{background:rgba(255,255,255,0.25);}
+    .dropdown-content{
+      display:none; position:absolute; right:0; background:#fff; min-width:180px;
+      box-shadow:0 4px 8px rgba(0,0,0,0.2); border-radius:6px; margin-top:0; padding-top:4px; z-index:1000;
+    }
+    .dropdown-content a{
+      color:var(--gray-800); padding:12px 16px; text-decoration:none; display:block;
+      font-size:14px; margin:0;
+    }
+    .dropdown-content a:hover{background:var(--gray-100); color:var(--gray-800);}
+    .account-dropdown:hover .dropdown-content,
+    .dropdown-content:hover{display:block;}
 
     /* Login Section */
     .login-section{
@@ -53,6 +73,14 @@
     }
     .login-title{
       font-size:26px; margin:0 0 18px; color:var(--navy); text-align:center;
+    }
+    .error-msg{
+      background:#ffebee; color:#c62828; padding:12px; border-radius:6px;
+      margin-bottom:16px; border:1px solid #ef9a9a;
+    }
+    .success-msg{
+      background:#e8f5e9; color:#2e7d32; padding:12px; border-radius:6px;
+      margin-bottom:16px; border:1px solid #a5d6a7;
     }
     .form-group{margin-bottom:16px;}
     .form-group label{display:block; margin-bottom:4px; color:var(--gray-800); font-weight:600;}
@@ -104,8 +132,24 @@
         <a href="/about">About Us</a>
         <a href="/faq">FAQ</a>
         <a href="/submit">Submission Page</a>
-        <a href="/review">Lawyer Review Page</a>
-        <a href="/login"><strong>Login</strong></a>
+        <% if (typeof roleId !== 'undefined' && (roleId === 1 || roleId === 2)) { %>
+          <a href="/review">Lawyer Review Page</a>
+        <% } %>
+        <% if (typeof isLoggedIn !== 'undefined' && isLoggedIn) { %>
+          <div class="account-dropdown">
+            <button class="account-btn">Account</button>
+            <div class="dropdown-content">
+              <a href="/profile">View/Edit Profile</a>
+              <a href="/my-submissions">View Submissions</a>
+              <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+                <a href="/manage-users">Manage Users</a>
+              <% } %>
+              <a href="/logout">Log Out</a>
+            </div>
+          </div>
+        <% } else { %>
+          <a href="/login"><strong>Login</strong></a>
+        <% } %>
       </nav>
     </div>
   </header>
@@ -115,10 +159,23 @@
     <div class="wrap">
       <div class="login-container">
         <h2 class="login-title">Client Login</h2>
+        
+        <% if (typeof error_message !== 'undefined' && error_message) { %>
+          <div class="error-msg">
+            <%= error_message %>
+          </div>
+        <% } %>
+        
+        <% if (typeof success_message !== 'undefined' && success_message) { %>
+          <div class="success-msg">
+            <%= success_message %>
+          </div>
+        <% } %>
+        
         <form action="/login" method="post">
           <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" required>
+            <label for="username">Email</label>
+            <input type="text" id="username" name="username" value="<%= typeof username_value !== 'undefined' ? username_value : '' %>" required>
           </div>
           <div class="form-group">
             <label for="password">Password</label>
